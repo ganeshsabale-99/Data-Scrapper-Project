@@ -1,0 +1,48 @@
+# ─── Version control ─────────────────────────────────────────────────
+.git
+.gitignore
+.gitattributes
+
+# ─── Secrets — never bake into image ─────────────────────────────────
+**/.env
+**/.env.local
+**/.env.development
+**/.env.production
+# allow the example file (safe to include for reference)
+!**/.env.example
+
+# ─── Local node_modules — Docker installs its own ────────────────────
+# Excluding these also significantly reduces build-context transfer time
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+
+# ─── Local build outputs — Docker builds fresh ───────────────────────
+apps/*/dist
+packages/*/dist
+
+# ─── Test files ──────────────────────────────────────────────────────
+**/*.test.ts
+**/*.spec.ts
+**/__tests__
+**/*.test.js
+**/*.spec.js
+
+# ─── Dev tooling configs ──────────────────────────────────────────────
+.vscode
+.eslintrc*
+.prettierrc*
+*.eslintrc*
+
+# ─── Documentation / CI / deploy configs (not needed in image) ───────
+README.md
+render.yaml
+*.md
+
+# ─── pnpm local store ────────────────────────────────────────────────
+.pnpm-store
+.pnpm-debug.log
+
+# ─── OS artifacts ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gupio-black: #0B0C0F;
+  --color-gupio-charcoal: #14171C;
+  --color-amber: #FFBF00;
+  --color-gupio-white: #F4F6F8;
+  --color-gupio-gray: #A7AFBA;
+  --font-sora: 'Sora', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+:root {
+  --background: 220 14% 4%;
+  --foreground: 210 20% 96%;
+  --accent: 45 100% 50%;
+  --muted-foreground: 215 14% 68%;
+  --border: 220 10% 18%;
+  --radius: 0.5rem;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0B0C0F;
+  color: #F4F6F8;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0B0C0F; }
+::-webkit-scrollbar-thumb { background: #14171C; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #A7AFBA; }
+
+/* Cinematic image filter */
+.cinematic-grade {
+  filter: saturate(0.35) contrast(1.1);
+}
+
+/* Glass card */
+.glass-card {
+  background: rgba(11, 12, 15, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Grain overlay */
+.grain-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 200px 200px;
+}
+
+/* Vignette */
+.vignette {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(11, 12, 15, 0.6) 100%);
+}
+
+/* Button primary with shimmer */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  background-color: #FFBF00;
+  color: #0B0C0F;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%; width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.btn-primary:hover::before { left: 100%; }
+.btn-primary:hover { background-color: #e6ac00; transform: translateY(-1px); }
+
+/* Card hover lift */
+.card-hover {
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Accent line */
+.accent-line {
+  stroke: #FFBF00;
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+}
+
+/* Scroll animations */
+.scroll-hidden {
+  opacity: 0;
+  transform: translateY(2.5rem) scale(0.98);
+}
+.scroll-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+/* Word animation */
+.word-hidden {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  display: inline-block;
+}
+.word-visible {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  display: inline-block;
+}

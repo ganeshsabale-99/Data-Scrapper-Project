@@ -1,0 +1,49 @@
+{
+  "name": "@repo/db",
+  "version": "1.0.0",
+  "description": "",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:reset": "prisma migrate reset",
+    "prisma:studio": "prisma studio",
+    "prisma:format": "prisma format",
+    "prisma:db:push": "prisma db push",
+    "import:tech-parks": "tsx scripts/import-tech-parks.ts",
+    "import:tech-parks:custom": "tsx scripts/import-tech-parks.ts",
+    "validate:tech-parks": "tsx scripts/validate-data.ts",
+    "validate:tech-parks:custom": "tsx scripts/validate-data.ts",
+    "full-import": "./scripts/full-import.sh",
+    "full-import:custom": "./scripts/full-import.sh"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/client": "6.12.0",
+    "@prisma/engines": "6.12.0",
+    "prisma": "6.12.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/node": "^20.19.11",
+    "bcryptjs": "^2.4.3",
+    "tsx": "^4.19.2"
+  }
+}

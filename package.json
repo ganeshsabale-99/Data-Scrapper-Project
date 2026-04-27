@@ -1,0 +1,28 @@
+{
+  "name": "tech-parks-analyzer",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "build:clean": "turbo run build --force",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "start": "concurrently \"npm run start:web\" \"npm run start:api\"",
+    "start:api": "cd apps/analyzer-api && npm run start",
+    "start:web": "cd apps/analyzer-web && npm run start",
+    "start:prod": "npm run start:api:prod && npm run start:web:prod",
+    "start:api:prod": "cd apps/analyzer-api && node dist/app.js",
+    "start:web:prod": "cd apps/analyzer-web && npm run start"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.5",
+    "typescript": "5.8.3",
+    "concurrently": "^9.1.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "engines": {
+    "node": ">=18"
+  }
+}

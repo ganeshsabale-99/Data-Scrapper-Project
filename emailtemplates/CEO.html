@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GUPIO - CEO/Superadmin Overall Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #000435;
+            background: linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%);
+            animation: bodyShift 12s ease-in-out infinite alternate;
+        }
+
+        .email-wrapper {
+            width: 100%;
+            padding: 32px 16px;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(0, 4, 53, 0.12);
+            animation: riseIn 800ms ease both;
+        }
+
+        .top-brand {
+            background: #000435;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .top-brand img {
+            height: 24px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .top-brand span {
+            color: #ffbf00;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .header {
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0, 4, 53, 0.25) 0%, rgba(0, 4, 53, 0.62) 100%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .header-banner {
+            width: 100%;
+            height: 280px;
+            display: block;
+            max-width: 100%;
+            object-fit: cover;
+            transform-origin: center center;
+            animation: carDrive 9s ease-in-out infinite alternate;
+        }
+
+        .car-brand {
+            position: absolute;
+            left: 18px;
+            bottom: 16px;
+            z-index: 3;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(0, 4, 53, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            box-shadow: 0 8px 20px rgba(0, 4, 53, 0.35);
+            backdrop-filter: blur(2px);
+        }
+
+        .car-brand img {
+            height: 24px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .car-copy {
+            position: absolute;
+            left: 18px;
+            top: 16px;
+            z-index: 3;
+            max-width: 68%;
+            color: #ffffff;
+            text-shadow: 0 4px 18px rgba(0, 0, 0, 0.7);
+            text-align: left;
+        }
+
+        .car-copy h2 {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.12;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        .car-copy p {
+            margin: 10px 0 0;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        .body {
+            padding: 36px;
+            animation: fadeUp 700ms ease both;
+            animation-delay: 120ms;
+        }
+
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 18px;
+            color: #000435;
+        }
+
+        .greeting span {
+            font-weight: 700;
+            color: #000435;
+        }
+
+        .intro {
+            font-size: 15px;
+            margin-bottom: 28px;
+            color: #374151;
+            line-height: 1.7;
+        }
+
+        .card {
+            border-radius: 14px;
+            padding: 20px 22px;
+            margin-bottom: 18px;
+            border: 1px solid #e5e7eb;
+            animation: fadeUp 700ms ease both;
+            background: #ffffff;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+        }
+
+        .card:hover {
+            transform: none;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #000435;
+        }
+
+        .card-title-icon {
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-title-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: #000435;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .card-list {
+            padding-left: 20px;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .card-list li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .card-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .highlight {
+            font-weight: 600;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-top: 10px;
+        }
+
+        .kpi {
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 24px;
+            background: #f9fbff;
+            text-align: center;
+        }
+
+        .kpi-label {
+            font-size: 14px;
+            color: #6b7280;
+            margin-top: 8px;
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #000435;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .report-table th,
+        .report-table td {
+            border: 1px solid #e5e7eb;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-table th {
+            background: #f8fafc;
+            color: #000435;
+            font-weight: 600;
+        }
+
+        .status-pill {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .status-pending {
+            background: #fff7ed;
+            color: #9a3412;
+        }
+
+        .status-progress {
+            background: #fef9c3;
+            color: #854d0e;
+        }
+
+        .status-done {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .chart-holder {
+            max-width: 260px;
+            margin: 0 auto;
+        }
+
+        .stat-expired {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
+        .role-col {
+            font-weight: 600;
+            color: #000435;
+        }
+
+        .dept-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin: 24px 0 12px;
+            color: #000435;
+        }
+
+        .legend-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #374151;
+        }
+
+        .legend-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .cta-section {
+            text-align: center;
+            margin: 28px 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffbf00 0%, #ffbf00 100%);
+            color: #00021b;
+            padding: 16px 40px;
+            border-radius: 50px;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 8px 24px rgba(255, 153, 0, 0.35);
+            position: relative;
+            overflow: hidden;
+            transition: transform 220ms ease, box-shadow 220ms ease;
+            animation: pulseGlow 2.8s ease-in-out infinite;
+            border: none;
+            cursor: pointer;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 14px 30px rgba(255, 153, 0, 0.42);
+        }
+
+        .cta-helper {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 12px;
+        }
+
+        .closing {
+            font-size: 15px;
+            margin-top: 28px;
+            color: #374151;
+            line-height: 1.7;
+        }
+
+        .closing p {
+            margin-bottom: 6px;
+        }
+
+        .signature {
+            font-weight: 700;
+            color: #000435;
+            font-size: 16px;
+        }
+
+        .signature-highlight {
+            color: #ffbf00;
+        }
+
+        .footer {
+            background: linear-gradient(135deg, #f8f9fc 0%, #f0f2f7 100%);
+            text-align: center;
+            padding: 24px 20px;
+            border-top: 1px solid #e5e7eb;
+            animation: fadeUp 700ms ease both;
+            animation-delay: 520ms;
+        }
+
+        .footer-logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: #000435;
+            margin-bottom: 8px;
+        }
+
+        .footer-tagline {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .footer-copyright {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 16px;
+        }
+
+        @keyframes riseIn {
+            from {
+                opacity: 0;
+                transform: translateY(14px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes carDrive {
+            0% {
+                transform: scale(1.04) translateX(-18px) translateY(0);
+                filter: saturate(1.02);
+            }
+
+            25% {
+                transform: scale(1.06) translateX(-6px) translateY(-1px);
+            }
+
+            50% {
+                transform: scale(1.08) translateX(8px) translateY(0);
+                filter: saturate(1.08);
+            }
+
+            75% {
+                transform: scale(1.07) translateX(18px) translateY(-1px);
+            }
+
+            100% {
+                transform: scale(1.05) translateX(28px) translateY(0);
+                filter: saturate(1.04);
+            }
+        }
+
+        @keyframes pulseGlow {
+
+            0%,
+            100% {
+                box-shadow: 0 8px 24px rgba(255, 153, 0, 0.35);
+            }
+
+            50% {
+                box-shadow: 0 14px 30px rgba(255, 153, 0, 0.48);
+            }
+        }
+
+        @keyframes bodyShift {
+            from {
+                background: linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%);
+            }
+
+            to {
+                background: linear-gradient(135deg, #f3f8ff 0%, #e5edf8 100%);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .email-wrapper {
+                padding: 16px 12px;
+            }
+
+            .container {
+                border-radius: 16px;
+            }
+
+            .body {
+                padding: 24px 20px;
+            }
+
+            .card {
+                padding: 16px 18px;
+            }
+
+            .kpi-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .card-title {
+                font-size: 15px;
+            }
+
+            .card-list {
+                font-size: 13px;
+                padding-left: 16px;
+            }
+
+            .cta-button {
+                padding: 14px 32px;
+                font-size: 14px;
+            }
+
+            .header-banner {
+                height: 220px;
+            }
+
+            .car-copy {
+                left: 12px;
+                top: 12px;
+                max-width: 84%;
+            }
+
+            .car-copy h2 {
+                font-size: 21px;
+            }
+
+            .car-copy p {
+                font-size: 12px;
+            }
+        }
+
+        @media print {
+            .cta-section {
+                display: none;
+            }
+
+            body {
+                background: #ffffff;
+            }
+
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-wrapper">
+        <div class="container">
+            <div class="top-brand">
+                <img src="https://res.cloudinary.com/ds4ojehul/image/upload/v1766128705/Gicon_vj87y1.png" alt="Gupio">
+            </div>
+
+            <div class="header">
+                <img src="https://unsplash.com/photos/oUBjd22gF6w/download?force=true&w=1600"
+                    alt="Tech Park and coworking operations" class="header-banner">
+                <div class="car-copy">
+                    <h2>Overall Tech Park Report</h2>
+                    <p>CEO/Superadmin consolidated update for national, state, city, and task execution metrics.</p>
+                </div>
+            </div>
+
+            <div class="body">
+                <div class="greeting">
+                    Dear <span>recipientName</span>,
+                </div>
+
+                <div class="intro">
+                    This is the latest dynamic overall report for the Tech Park Analyzer platform.
+                    <strong>Report Date:</strong> reportDate | <strong>Period:</strong> reportPeriodStart to
+                    reportPeriodEnd
+                </div>
+
+                <div class="card">
+                    <div class="card-title">
+                        <span class="card-title-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M3 3h18v18H3z"></path>
+                                <path d="M8 13h2v5H8zM12 9h2v9h-2zM16 6h2v12h-2z"></path>
+                            </svg>
+                        </span>
+                        Overall Snapshot
+                    </div>
+                    <div class="kpi-grid">
+                        <div class="kpi">
+                            <div class="kpi-value">124</div>
+                            <div class="kpi-label">Total Tech Park</div>
+                        </div>
+                        <div class="kpi">
+                            <div class="kpi-value">86</div>
+                            <div class="kpi-label">Total Coworking Space</div>
+                        </div>
+                        <div class="kpi">
+                            <div class="kpi-value">110</div>
+                            <div class="kpi-label">Verified Tech Parks</div>
+                        </div>
+                        <div class="kpi">
+                            <div class="kpi-value">14</div>
+                            <div class="kpi-label">Pending Verification of the Techparks</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">
+                        <span class="card-title-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M4 6h16"></path>
+                                <path d="M4 12h16"></path>
+                                <path d="M4 18h16"></path>
+                            </svg>
+                        </span>
+                        State-wise Report
+                    </div>
+                    <div class="table-wrap">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>State</th>
+                                    <th>Total</th>
+                                    <th>Verified</th>
+                                    <th>Pending</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stateReportTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">
+                        <span class="card-title-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M12 2a10 10 0 1 0 10 10"></path>
+                                <path d="M12 6v6l4 2"></path>
+                            </svg>
+                        </span>
+                        City-wise Report
+                    </div>
+                    <div class="table-wrap">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>City</th>
+                                    <th>State</th>
+                                    <th>Total</th>
+                                    <th>Verified</th>
+                                    <th>Pending</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cityReportTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">
+                        <span class="card-title-icon">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M8 7V3M16 7V3M4 11h16"></path>
+                                <rect x="3" y="5" width="18" height="16" rx="2"></rect>
+                            </svg>
+                        </span>
+                        CEO/Superadmin Task Report
+                    </div>
+                    <div class="table-wrap">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>Task ID</th>
+                                    <th>Task Title</th>
+                                    <th>Owner</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Due Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="taskReportTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">
+                        <span class="card-title-icon">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M12 2a10 10 0 0 1 10 10h-10z"></path>
+                            </svg>
+                        </span>
+                        Analysis Department - Dynamic Pie Chart
+                    </div>
+                    <div class="chart-holder">
+                        <canvas id="analysisPieChart" width="250" height="250"></canvas>
+                    </div>
+                    <ul class="legend-list" id="analysisLegend"></ul>
+                </div>
+
+                <div class="dept-title">Department 1: Acquisition Team</div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>ROLE</th>
+                                    <th>TOTAL</th>
+                                    <th>IN PROG</th>
+                                    <th>PENDING</th>
+                                    <th>DONE</th>
+                                    <th>EXP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="role-col">Lead Generator</td>
+                                    <td>45</td>
+                                    <td>12</td>
+                                    <td>8</td>
+                                    <td>25</td>
+                                    <td class="stat-expired">2</td>
+                                </tr>
+                                <tr>
+                                    <td class="role-col">Deal Closer</td>
+                                    <td>32</td>
+                                    <td>10</td>
+                                    <td>5</td>
+                                    <td>17</td>
+                                    <td class="stat-expired">1</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="dept-title">Department 2: Verification Team</div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>ROLE</th>
+                                    <th>TOTAL</th>
+                                    <th>IN PROG</th>
+                                    <th>PENDING</th>
+                                    <th>DONE</th>
+                                    <th>EXP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="role-col">Site Inspector</td>
+                                    <td>28</td>
+                                    <td>6</td>
+                                    <td>4</td>
+                                    <td>18</td>
+                                    <td class="stat-expired">0</td>
+                                </tr>
+                                <tr>
+                                    <td class="role-col">Doc Verifier</td>
+                                    <td>22</td>
+                                    <td>5</td>
+                                    <td>3</td>
+                                    <td>14</td>
+                                    <td class="stat-expired">1</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="dept-title">Department 3: Operations Support</div>
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>ROLE</th>
+                                    <th>TOTAL</th>
+                                    <th>IN PROG</th>
+                                    <th>PENDING</th>
+                                    <th>DONE</th>
+                                    <th>EXP</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="role-col">Facility Mgr</td>
+                                    <td>15</td>
+                                    <td>2</td>
+                                    <td>1</td>
+                                    <td>12</td>
+                                    <td class="stat-expired">0</td>
+                                </tr>
+                                <tr>
+                                    <td class="role-col">Support Staff</td>
+                                    <td>40</td>
+                                    <td>8</td>
+                                    <td>4</td>
+                                    <td>28</td>
+                                    <td class="stat-expired">2</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="cta-section">
+                    <button class="cta-button" id="downloadReportBtn" type="button">Download Report as PDF</button>
+                    <p class="cta-helper">Exports exactly the same report summary visible above.</p>
+                </div>
+
+                <div class="closing">
+                    <p>This is a system-generated overall report email for management review.</p>
+                    <p>Best regards,</p>
+                    <p class="signature">The <span class="signature-highlight">Gupio</span> Team</p>
+                </div>
+            </div>
+
+            <div class="footer">
+                <div class="footer-logo">
+                    <img src="https://res.cloudinary.com/ds4ojehul/image/upload/v1766128705/Gicon_vj87y1.png"
+                        alt="Gupio" style="height: 40px; width: auto;">
+                </div>
+                <div class="footer-tagline">Building the Future of Smart Parking Solutions</div>
+                <div class="footer-copyright">Copyright 2026 Gupio Services Private Limited. All rights reserved.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function safeJsonParse(value, fallback) {
+            try {
+                const parsed = JSON.parse(value);
+                return Array.isArray(parsed) ? parsed : fallback;
+            } catch (_error) {
+                return fallback;
+            }
+        }
+
+        function statusClass(status) {
+            const s = String(status || '').toUpperCase();
+            if (['CLOSED', 'COMPLETED', 'DONE', 'VERIFIED'].includes(s)) return 'status-done';
+            if (['IN_PROGRESS', 'MEETING_SCHEDULED', 'CONTACTED'].includes(s)) return 'status-progress';
+            return 'status-pending';
+        }
+
+        function renderStateRows() {
+            const stateRows = safeJsonParse('${stateReportJson}', []);
+            const tbody = document.getElementById('stateReportTbody');
+            tbody.innerHTML = '';
+
+            if (!stateRows.length) {
+                tbody.innerHTML = '<tr><td colspan="4">No state-wise data available.</td></tr>';
+                return;
+            }
+
+            stateRows.forEach((row) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td>' + (row.state || '') + '</td>' +
+                    '<td>' + (row.total || 0) + '</td>' +
+                    '<td>' + (row.verified || 0) + '</td>' +
+                    '<td>' + (row.pending || 0) + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderCityRows() {
+            const cityRows = safeJsonParse('${cityReportJson}', []);
+            const tbody = document.getElementById('cityReportTbody');
+            tbody.innerHTML = '';
+
+            if (!cityRows.length) {
+                tbody.innerHTML = '<tr><td colspan="5">No city-wise data available.</td></tr>';
+                return;
+            }
+
+            cityRows.forEach((row) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td>' + (row.city || '') + '</td>' +
+                    '<td>' + (row.state || '') + '</td>' +
+                    '<td>' + (row.total || 0) + '</td>' +
+                    '<td>' + (row.verified || 0) + '</td>' +
+                    '<td>' + (row.pending || 0) + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderTaskRows() {
+            const taskRows = safeJsonParse('${ceoTaskReportJson}', []);
+            const tbody = document.getElementById('taskReportTbody');
+            tbody.innerHTML = '';
+
+            if (!taskRows.length) {
+                tbody.innerHTML = '<tr><td colspan="6">No tasks available for this period.</td></tr>';
+                return;
+            }
+
+            taskRows.forEach((row) => {
+                const tr = document.createElement('tr');
+                const currentStatus = row.status || 'PENDING';
+                tr.innerHTML =
+                    '<td>' + (row.taskId || '') + '</td>' +
+                    '<td>' + (row.title || '') + '</td>' +
+                    '<td>' + (row.owner || '') + '</td>' +
+                    '<td><span class="status-pill ' + statusClass(currentStatus) + '">' + currentStatus + '</span></td>' +
+                    '<td>' + (row.priority || '') + '</td>' +
+                    '<td>' + (row.dueDate || '') + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function drawAnalysisPie() {
+            const distribution = safeJsonParse('${analysisDistributionJson}', []);
+            const fallback = [
+                { label: 'Research', value: 40 },
+                { label: 'Verification', value: 35 },
+                { label: 'QA', value: 25 }
+            ];
+            const data = distribution.length ? distribution : fallback;
+            const colors = ['#2563eb', '#16a34a', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16'];
+
+            const canvas = document.getElementById('analysisPieChart');
+            const legend = document.getElementById('analysisLegend');
+            const ctx = canvas.getContext('2d');
+
+            const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0) || 1;
+            const duration = 1200;
+            let startTime = null;
+
+            function animate(currentTime) {
+                if (!startTime) startTime = currentTime;
+                const progress = Math.min((currentTime - startTime) / duration, 1);
+
+                // Ease out cubic
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let start = -Math.PI / 2;
+
+                data.forEach((item, index) => {
+                    const value = Number(item.value || 0);
+                    const sliceAngle = (value / total) * Math.PI * 2 * easeProgress;
+                    const color = colors[index % colors.length];
+
+                    if (sliceAngle > 0) {
+                        ctx.beginPath();
+                        ctx.moveTo(canvas.width / 2, canvas.height / 2);
+                        ctx.arc(canvas.width / 2, canvas.height / 2, 92, start, start + sliceAngle);
+                        ctx.closePath();
+                        ctx.fillStyle = color;
+                        ctx.fill();
+                    }
+                    start += sliceAngle;
+                });
+
+                // Center cutout for donut style
+                ctx.beginPath();
+                ctx.arc(canvas.width / 2, canvas.height / 2, 40, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            }
+
+            requestAnimationFrame(animate);
+
+            legend.innerHTML = '';
+            data.forEach((item, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = '<span class="legend-dot" style="background:' + colors[index % colors.length] + '"></span>' +
+                    String(item.label || ('Series ' + (index + 1))) + ': ' + String(item.value || 0);
+                legend.appendChild(li);
+            });
+        }
+
+        renderStateRows();
+        renderCityRows();
+        renderTaskRows();
+        drawAnalysisPie();
+
+        document.getElementById('downloadReportBtn').addEventListener('click', function () {
+            window.print();
+        });
+    </script>
+</body>
+
+</html>

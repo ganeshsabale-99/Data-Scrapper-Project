@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to GUPIO - Admin Dashboard Access</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #000435;
+            background: linear-gradient(135deg, #f8f9fc 0%, #e8ecf4 100%);
+        }
+
+        .email-wrapper {
+            width: 100%;
+            padding: 32px 16px;
+        }
+
+        .container {
+            max-width: 680px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 16px 48px rgba(0, 4, 53, 0.12);
+        }
+
+        .top-brand {
+            background: #000435;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .top-brand img {
+            height: 24px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .top-brand span {
+            color: #ffbf00;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Header Section */
+        .header {
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .header-banner {
+            width: 100%;
+            height: 280px;
+            display: block;
+            max-width: 100%;
+            object-fit: cover;
+            transform-origin: center center;
+            animation: carDrive 9s ease-in-out infinite alternate;
+        }
+
+        .car-brand {
+            position: absolute;
+            left: 18px;
+            bottom: 16px;
+            z-index: 3;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(0, 4, 53, 0.78);
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            box-shadow: 0 8px 20px rgba(0, 4, 53, 0.35);
+            backdrop-filter: blur(2px);
+        }
+
+        .car-brand img {
+            height: 24px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        .car-copy {
+            position: absolute;
+            left: 18px;
+            top: 16px;
+            z-index: 3;
+            max-width: 58%;
+            color: #ffffff;
+            text-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+            text-align: left;
+        }
+
+        .car-copy h2 {
+            margin: 0;
+            font-size: 28px;
+            line-height: 1.12;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        .car-copy p {
+            margin: 10px 0 0;
+            font-size: 14px;
+            line-height: 1.5;
+            color: #e0ecff;
+            font-weight: 500;
+        }
+
+        /* Body Section */
+        .body {
+            padding: 36px;
+        }
+
+        .greeting {
+            font-size: 16px;
+            margin-bottom: 18px;
+            color: #000435;
+        }
+
+        .greeting span {
+            font-weight: 700;
+            color: #000435;
+        }
+
+        .intro {
+            font-size: 15px;
+            margin-bottom: 28px;
+            color: #374151;
+            line-height: 1.7;
+        }
+
+        /* Cards */
+        .card {
+            border-radius: 14px;
+            padding: 20px 22px;
+            margin-bottom: 18px;
+            border: 1px solid;
+            transition: transform 250ms ease, box-shadow 250ms ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 14px 26px rgba(0, 4, 53, 0.1);
+        }
+
+        .card--credentials {
+            background: linear-gradient(135deg, #eef6ff 0%, #ffffff 78%);
+            border: 1px solid #bfdbfe;
+            color: #374151;
+            box-shadow: 0 10px 24px rgba(59, 130, 246, 0.14);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card--next-steps {
+            background: linear-gradient(135deg, #fff7ed 0%, #ffffff 78%);
+            border-color: #fed7aa;
+            box-shadow: 0 10px 24px rgba(245, 158, 11, 0.14);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card--help {
+            background: linear-gradient(135deg, #fffaf2 0%, #ffffff 70%);
+            border-color: #ffd9a8;
+            box-shadow: 0 10px 24px rgba(255, 153, 0, 0.16);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title-icon {
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card-title-icon svg {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: #000435;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .card-list {
+            padding-left: 20px;
+            font-size: 14px;
+            color: #374151;
+        }
+
+        .card-list li {
+            margin-bottom: 8px;
+            line-height: 1.6;
+        }
+
+        .card-list li:last-child {
+            margin-bottom: 0;
+        }
+
+        .highlight {
+            font-weight: 600;
+        }
+
+        /* Contact Styles */
+        .contact-grid {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-around;
+            align-items: flex-start;
+            gap: 20px;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .contact-icon {
+            width: 24px;
+            height: 24px;
+            min-width: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .contact-icon svg {
+            width: 22px;
+            height: 22px;
+            fill: none;
+            stroke: #000435;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .contact-details {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .contact-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6b7280;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .contact-value {
+            font-weight: 600;
+            color: #000435;
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        .contact-link {
+            color: #ffbf00;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            word-break: break-word;
+        }
+
+        /* CTA Button */
+        .cta-section {
+            text-align: center;
+            margin: 28px 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #ffbf00 0%, #ffbf00 100%);
+            color: #00021b;
+            padding: 16px 40px;
+            border-radius: 50px;
+            font-size: 15px;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 8px 24px rgba(255, 153, 0, 0.35);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cta-helper {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 12px;
+        }
+
+        .cta-helper a {
+            color: #ffbf00;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Closing */
+        .closing {
+            font-size: 15px;
+            margin-top: 28px;
+            color: #374151;
+            line-height: 1.7;
+        }
+
+        .closing p {
+            margin-bottom: 6px;
+        }
+
+        .signature {
+            font-weight: 700;
+            color: #000435;
+            font-size: 16px;
+        }
+
+        .signature-highlight {
+            color: #ffbf00;
+        }
+
+        /* Footer */
+        .footer {
+            background: linear-gradient(135deg, #f8f9fc 0%, #f0f2f7 100%);
+            text-align: center;
+            padding: 24px 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .footer-logo {
+            font-size: 18px;
+            font-weight: 700;
+            color: #000435;
+            margin-bottom: 8px;
+        }
+
+        .footer-logo span {
+            color: #ffbf00;
+        }
+
+        .footer-tagline {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .footer-link {
+            display: inline-block;
+            color: #ffbf00;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 20px;
+            border: 2px solid #ffbf00;
+            border-radius: 25px;
+            background: #ffffff;
+            box-shadow: 0 6px 16px rgba(255, 191, 0, 0.25);
+            position: relative;
+            overflow: hidden;
+            transition: transform 220ms ease, box-shadow 220ms ease;
+        }
+
+        .footer-copyright {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 16px;
+        }
+
+        .social-float {
+            transition: transform 220ms ease;
+        }
+
+        .social-float:hover {
+            transform: translateY(-2px) scale(1.08);
+        }
+
+
+
+        @keyframes carDrive {
+            0% {
+                transform: scale(1.04) translateX(-18px) translateY(0);
+                filter: saturate(1.02);
+            }
+
+            25% {
+                transform: scale(1.06) translateX(-6px) translateY(-1px);
+            }
+
+            50% {
+                transform: scale(1.08) translateX(8px) translateY(0);
+                filter: saturate(1.08);
+            }
+
+            75% {
+                transform: scale(1.07) translateX(18px) translateY(-1px);
+            }
+
+            100% {
+                transform: scale(1.05) translateX(28px) translateY(0);
+                filter: saturate(1.04);
+            }
+        }
+
+
+
+
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .email-wrapper {
+                padding: 16px 12px;
+            }
+
+            .container {
+                border-radius: 16px;
+            }
+
+            .body {
+                padding: 24px 20px;
+            }
+
+            .card {
+                padding: 16px 18px;
+            }
+
+            .contact-grid {
+                flex-direction: column;
+                justify-content: flex-start;
+                align-items: flex-start;
+                gap: 14px;
+            }
+
+            .contact-item {
+                width: 100%;
+            }
+
+            .contact-icon {
+                width: 22px;
+                height: 22px;
+                min-width: 22px;
+            }
+
+            .contact-icon svg {
+                width: 20px;
+                height: 20px;
+            }
+
+            .contact-value,
+            .contact-link {
+                font-size: 13px;
+            }
+
+            .contact-label {
+                font-size: 10px;
+            }
+
+            .card-title {
+                font-size: 15px;
+            }
+
+            .card-list {
+                font-size: 13px;
+                padding-left: 16px;
+            }
+
+            .cta-button {
+                padding: 14px 32px;
+                font-size: 14px;
+            }
+
+            .header-banner {
+                height: 220px;
+            }
+
+            .car-brand {
+                left: 12px;
+                bottom: 12px;
+                padding: 7px 10px;
+            }
+
+            .car-brand img {
+                height: 20px;
+            }
+
+            .car-copy {
+                left: 12px;
+                top: 12px;
+                max-width: 84%;
+            }
+
+            .car-copy h2 {
+                font-size: 21px;
+            }
+
+            .car-copy p {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="email-wrapper">
+        <div class="container">
+            <div class="top-brand">
+                <img src="https://res.cloudinary.com/ds4ojehul/image/upload/v1766128705/Gicon_vj87y1.png" alt="Gupio">
+
+            </div>
+
+            <!-- Header Section with Background Image -->
+            <div class="header">
+                <img src="https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1600&q=80"
+                    alt="Premium car at smart parking entrance" class="header-banner">
+                <div class="car-copy">
+                    <h2>Admin Dashboard Access</h2>
+                    <p>Your account has been created successfully. Start managing your parking operations today.</p>
+                </div>
+
+            </div>
+
+            <!-- Body Section -->
+            <div class="body">
+                <div class="greeting">
+                    Dear <span>Sir</span>,
+                </div>
+                <div class="intro">
+                    Thank you for choosing <strong>Gupio Services Pvt Ltd</strong>. We're thrilled to have you on board!
+                    Your user dashboard is ready, and you can now access powerful parking management features tailored
+                    for your team.
+                </div>
+
+                <!-- Credentials Card -->
+                <div class="card card--credentials">
+                    <div class="card-title">
+                        <span class="card-title-icon">
+                            <svg viewBox="0 0 24 24">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                        </span>
+                        Your Login Credentials
+                    </div>
+                    <ul class="card-list">
+                        <li><span class="highlight">Admin Dashboard Link:</span> <a href="https://admin.gps.gupio.in/"
+                                target="_blank"
+                                style="color: #ffbf00; text-decoration: none; font-weight: 500;">https://admin.gps.gupio.in/</a>
+                        </li>
+                        <li><span class="highlight">User ID:</span> zeenath.e@mygupio.com</li>
+                        <li><span class="highlight">Password:</span> Zeenath@123</li>
+                        <li><span class="highlight">Role:</span> ${role}</li>
+                        <li><span class="highlight">Department:</span> ${department}</li>
+                        <li><span class="highlight">Account Status:</span> Active</li>
+                    </ul>
+                </div>
+
+                <!-- Next Steps Card -->
+                <div class="card card--next-steps">
+                    <div class="card-title">
+                        <span class="card-title-icon">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </span>
+                        What's Next?
+                    </div>
+                    <ul class="card-list">
+                        <li>Log in to your dashboard using the credentials above</li>
+                        <li>Set up your sites, users, and vehicle configurations</li>
+                        <li>Explore analytics and real-time parking insights</li>
+                        <li>Customize settings to match your operational needs</li>
+                    </ul>
+                </div>
+
+                <!-- CTA Button -->
+                <div class="cta-section">
+                    <a href="https://admin.gps.gupio.in/" class="cta-button">Access Your Dashboard</a>
+                    <p class="cta-helper">Or visit us at <a href="https://gupio.in/" target="_blank">gupio.in</a></p>
+                </div>
+
+                <!-- Help Card -->
+                <div class="card card--help">
+                    <div class="card-title">
+                        <span class="card-title-icon">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                            </svg>
+                        </span>
+                        Need Assistance?
+                    </div>
+                    <div class="contact-grid">
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <svg viewBox="0 0 24 24">
+                                    <path
+                                        d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div class="contact-details">
+                                <div class="contact-label">Call Us</div>
+                                <div class="contact-value">+91 888 444 6720</div>
+                            </div>
+                        </div>
+                        <div class="contact-item">
+                            <div class="contact-icon">
+                                <svg viewBox="0 0 24 24">
+                                    <path
+                                        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z">
+                                    </path>
+                                    <polyline points="22,6 12,13 2,6"></polyline>
+                                </svg>
+                            </div>
+                            <div class="contact-details">
+                                <div class="contact-label">Email Us</div>
+                                <a class="contact-link" href="mailto:contact@mygupio.com">contact@mygupio.com</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Closing -->
+                <div class="closing">
+                    <p>We're excited to partner with you in transforming your parking operations.</p>
+                    <p>Best regards,</p>
+                    <p class="signature">The <span class="signature-highlight">Gupio</span> Team</p>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <div class="footer-logo">
+                    <img src="https://res.cloudinary.com/ds4ojehul/image/upload/v1766128705/Gicon_vj87y1.png"
+                        alt="Gupio" style="height: 40px; width: auto;">
+                </div>
+                <div class="footer-tagline">Building the Future of Smart Parking Solutions</div>
+                <!-- Social Media Icons -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+                    style="margin: 20px 0;">
+                    <tr>
+                        <td align="center">
+                            <p
+                                style="font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 1.5px; margin: 0 0 14px 0; font-weight: 600;">
+                                Follow Us</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td align="center">
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td style="padding: 0 10px;" align="center" valign="middle">
+                                        <a href="https://www.linkedin.com/company/gupio-services-private-limited"
+                                            target="_blank" style="text-decoration: none; display: inline-block;">
+                                            <img class="social-float"
+                                                src="https://cdn-icons-png.flaticon.com/512/3536/3536505.png"
+                                                alt="LinkedIn" width="36" height="36"
+                                                style="display: block; border-radius: 8px; border: 0;">
+                                        </a>
+                                    </td>
+                                    <td style="padding: 0 10px;" align="center" valign="middle">
+                                        <a href="https://www.instagram.com/gupio.in/?hl=en" target="_blank"
+                                            style="text-decoration: none; display: inline-block;">
+                                            <img class="social-float"
+                                                src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png"
+                                                alt="Instagram" width="36" height="36"
+                                                style="display: block; border-radius: 8px; border: 0;">
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+                <a href="https://gupio.in/" target="_blank" class="footer-link">Visit Our Website →</a>
+                <div class="footer-copyright">© 2026 Gupio Services Private Limited. All rights reserved.</div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

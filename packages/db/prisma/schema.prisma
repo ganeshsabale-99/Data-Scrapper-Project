@@ -1,0 +1,576 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id                      String                @id @default(cuid())
+  phoneNumber             String                @unique
+  email                   String                @unique
+  name                    String
+  isActive                Boolean               @default(true)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  city                    String?
+  state                   String?
+  passwordHash            String?
+  mfaEnabled              Boolean               @default(false)
+  status                  AdminUserStatus       @default(ACTIVE)
+  isEmailVerified         Boolean               @default(true)
+  isMobileVerified        Boolean               @default(true)
+  isApprovedByAdmin       Boolean               @default(true)
+  requestedRole           String?
+  companyName             String?
+  companyDetails          String?
+  otpAttempts             Int                   @default(0)
+  otpLastSentAt           DateTime?
+  otpVerifiedAt           DateTime?
+  approvedAt              DateTime?
+  rejectedAt              DateTime?
+  rejectionReason         String?
+  organizationId          String                @default("org_default")
+
+  avatarUrl               String?
+  activityLogs            ActivityLog[]
+  otpDispatchLogs         OtpDispatchLog[]
+  organization            Organization          @relation(fields: [organizationId], references: [id])
+  accessRolesAssigned     AdminUserAccessRole[] @relation("AdminUserAccessRoleAssignedBy")
+  accessRoles             AdminUserAccessRole[] @relation("AdminUserAccessRoleUser")
+  verifiedCoworkingSpaces CoworkingSpace[]      @relation("CoworkingSpaceVerifiedBy")
+  verifiedTechParks       NewTechPark[]         @relation("NewTechParkVerifiedBy")
+
+  @@index([organizationId])
+}
+
+model OtpDispatchLog {
+  id                  String    @id @default(cuid())
+  phoneNumber         String
+  purpose             String
+  provider            String
+  serviceMode         String?
+  transactionId       String?
+  providerState       String?
+  providerDescription String?
+  accepted            Boolean
+  requestId           String?
+  userId              String?
+  createdAt           DateTime  @default(now())
+  user                AdminUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([phoneNumber, createdAt(sort: Desc)])
+  @@index([transactionId])
+  @@index([requestId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  roles       AccessRole[]
+  users       AdminUser[]
+  departments Department[]
+}
+
+model Department {
+  id             String       @id @default(cuid())
+  name           String
+  normalizedName String
+  organizationId String
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  roles          AccessRole[]
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, normalizedName], name: "department_org_normalized_unique")
+  @@index([organizationId, isActive])
+}
+
+model AccessRole {
+  id              String                 @id @default(cuid())
+  name            String
+  normalizedName  String
+  organizationId  String
+  departmentId    String
+  isSystem        Boolean                @default(false)
+  isActive        Boolean                @default(true)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  department      Department             @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  organization    Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions     AccessRolePermission[]
+  userAssignments AdminUserAccessRole[]
+
+  @@unique([departmentId, normalizedName], name: "access_role_department_normalized_unique")
+  @@index([organizationId, isActive])
+}
+
+model AccessPermission {
+  id          String                 @id @default(cuid())
+  key         String                 @unique
+  name        String
+  module      String
+  description String?
+  isSystem    Boolean                @default(false)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  roles       AccessRolePermission[]
+
+  @@index([module])
+}
+
+model AccessRolePermission {
+  roleId       String
+  permissionId String
+  grantedAt    DateTime         @default(now())
+  permission   AccessPermission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         AccessRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model AdminUserAccessRole {
+  userId           String
+  roleId           String
+  assignedByUserId String?
+  assignedAt       DateTime   @default(now())
+  assignedByUser   AdminUser? @relation("AdminUserAccessRoleAssignedBy", fields: [assignedByUserId], references: [id])
+  role             AccessRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user             AdminUser  @relation("AdminUserAccessRoleUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@index([assignedByUserId])
+}
+
+model TechPark {
+  id                 String   @id @default(cuid())
+  name               String
+  address            String
+  city               String
+  locationLat        Float
+  locationLng        Float
+  website            String?
+  description        String?
+  operator           String?
+  rating             Float?
+  total_ratings      Int?
+  types              String[]
+  plus_code          String?
+  opening_hours      String[]
+  map_url            String?
+  photo_reference    String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  email              String?
+  internationalPhone String?
+  phone              String?
+  status             Status   @default(NOT_CONTACTED)
+}
+
+model NewTechPark {
+  id                     String            @id @default(cuid())
+  place_id               String            @unique
+  name                   String
+  address_line1          String?
+  address_line2          String?
+  locality               String?
+  city                   String?
+  district               String?
+  state                  String?
+  pincode                String?
+  country                String?
+  lat                    Float?
+  lng                    Float?
+  map_url                String?
+  photo_url              String?
+  website                String?
+  reception_phone        String?
+  international_phone    String?
+  generic_email          String?
+  contact_page_url       String?
+  rating                 Float?
+  total_ratings          Int?
+  business_status        String?
+  types                  String[]
+  operator_name          String?
+  campus_brand           String?
+  legal_entity           String?
+  campus_size_hint       String?
+  tenant_signal          String?
+  amenities_signal       String?
+  source_primary         String?
+  sources_raw            Json?
+  confidence_overall     Float?
+  qa_status              String?
+  is_active              Boolean?          @default(true)
+  notes_internal         String?
+  first_seen_at          DateTime?
+  last_seen_at           DateTime?
+  last_changed_at        DateTime?
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+  exterior_media_url     String?
+  builder_name           String?
+  security_agency_name   String?
+  property_manager_name  String?
+  property_manager_phone String?
+  property_manager_email String?
+  parking_floors         Int?
+  total_floors           Int?
+  basement_levels        Int?
+  spoc_name              String?
+  spoc_phone             String?
+  seating_capacity       Int?
+  challenges             String?
+  exterior_media_urls    String[]
+  status                 Status            @default(NOT_CONTACTED)
+  isVerified             Boolean           @default(false)
+  verifiedByUserId       String?
+  verifiedAt             DateTime?
+  duplication_score      Float?            @default(0)
+  reviewStatus           ReviewStatus      @default(PENDING_REVIEW)
+  ai_review_summary      Json?
+  contactLogs            ContactLog[]
+  verifiedByUser         AdminUser?        @relation("NewTechParkVerifiedBy", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+  companies              TechParkCompany[]
+
+  @@index([state])
+  @@index([state, city])
+  @@index([status])
+  @@index([is_active])
+  @@index([isVerified])
+  @@index([reviewStatus])
+  @@index([verifiedByUserId])
+  @@index([verifiedAt])
+}
+
+
+
+model TechParkCompany {
+  id                          String       @id @default(cuid())
+  name                        String
+  address                     String
+  city                        String
+  locationLat                 Float
+  locationLng                 Float
+  website                     String?
+  description                 String?
+  operator                    String?
+  rating                      Float?
+  total_ratings               Int?
+  types                       String[]
+  business_status             String
+  plus_code                   String?
+  opening_hours               String[]
+  map_url                     String?
+  photo_reference             String?
+  contact_phone               String?
+  contact_international_phone String?
+  contact_email               String?
+  newTechParkId               String?
+  createdAt                   DateTime     @default(now())
+  updatedAt                   DateTime     @updatedAt
+  ContactLog                  ContactLog[]
+  newTechPark                 NewTechPark? @relation(fields: [newTechParkId], references: [id])
+
+  @@index([newTechParkId])
+  @@index([business_status])
+  @@index([city])
+}
+
+model ContactLog {
+  id                 String            @id @default(cuid())
+  companyId          String?
+  type               ContactLogType    @default(CALL)
+  status             Status
+  subject            String?
+  notes              String
+  timestamp          DateTime?
+  attachments        Json?
+  createdBy          String
+  updatedBy          String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  coworkingCompanyId String?
+  coworkingSpaceId   String?
+  newTechParkId      String?
+  actualLat          Float?
+  actualLng          Float?
+  followUpAt         DateTime?
+  locationTrust      Int?              @default(0)
+  metWithSpoc        String?
+  company            TechParkCompany?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  coworkingCompany   CoworkingCompany? @relation(fields: [coworkingCompanyId], references: [id], onDelete: Cascade)
+  coworkingSpace     CoworkingSpace?   @relation(fields: [coworkingSpaceId], references: [id], onDelete: Cascade)
+  newTechPark        NewTechPark?      @relation(fields: [newTechParkId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+  @@index([newTechParkId, createdAt])
+  @@index([coworkingSpaceId, createdAt])
+  @@index([coworkingCompanyId, createdAt])
+  @@index([status])
+}
+
+model FundingNews {
+  id                String     @id @default(cuid())
+  title             String
+  article_url       String     @unique
+  source            NewsSource
+  author            String?
+  content_summary   String?
+  funding_amount    String?
+  company_name      String?
+  industry          String?
+  is_featured       Boolean    @default(false)
+  is_bookmarked     Boolean    @default(false)
+  created_at        DateTime   @default(now())
+  updated_at        DateTime   @updatedAt
+  contact_email     String?
+  contact_person    String?
+  contact_phone     String?
+  contact_status    Status?    @default(NOT_CONTACTED)
+  date_published    DateTime?
+  founders          String[]
+  investors         String[]
+  location          String?
+  round             String?
+
+}
+
+model ActivityLog {
+  id              String             @id @default(dbgenerated("(gen_random_uuid())::text"))
+  entityType      ActivityEntityType
+  entityId        String
+  action          ActivityAction
+  summary         String?
+  changedFields   Json?
+  meta            Json?
+  performedById   String?
+  performedByName String
+  performedByRole String
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime           @default(now())
+  performedByUser AdminUser?         @relation(fields: [performedById], references: [id], onDelete: SetNull)
+
+  @@index([performedById])
+  @@index([entityType, entityId, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+model CoworkingSpace {
+  id                  String             @id @default(cuid())
+  name                String
+  city                String
+  state               String
+  district            String?
+  pincode             String?
+  country             String?
+  address             String?
+  contact_phone       String?
+  international_phone String?
+  generic_email       String?
+  operator_name       String?
+  campus_brand        String?
+  legal_entity        String?
+  campus_size_hint    String?
+  status              Status             @default(NOT_CONTACTED)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  lat                 Float?
+  lng                 Float?
+  map_url             String?
+  website             String?
+  rating              Float?
+  total_ratings       Int?
+  exterior_media_url  String?
+  builder_name        String?
+  security_agency_name String?
+  property_manager_name String?
+  property_manager_phone String?
+  property_manager_email String?
+  parking_floors      Int?
+  total_floors        Int?
+  basement_levels     Int?
+  spoc_name           String?
+  spoc_phone          String?
+  seating_capacity    Int?
+  challenges          String?
+  exterior_media_urls String[]
+  isVerified          Boolean            @default(false)
+  verifiedAt          DateTime?
+  verifiedByUserId    String?
+  contactLogs         ContactLog[]
+  companies           CoworkingCompany[]
+  verifiedByUser      AdminUser?         @relation("CoworkingSpaceVerifiedBy", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([state])
+  @@index([state, city])
+  @@index([status])
+}
+
+model CoworkingCompany {
+  id                          String         @id @default(cuid())
+  coworkingSpaceId            String
+  name                        String
+  description                 String?
+  operator                    String?
+  contact_phone               String?
+  contact_email               String?
+  contact_international_phone String?
+  business_status             String         @default("NOT_CONTACTED")
+  createdAt                   DateTime       @default(now())
+  updatedAt                   DateTime       @updatedAt
+  ContactLog                  ContactLog[]
+  coworkingSpace              CoworkingSpace @relation(fields: [coworkingSpaceId], references: [id], onDelete: Cascade)
+
+  @@index([coworkingSpaceId])
+  @@index([business_status])
+}
+
+model CityCatalog {
+  id        String   @id @default(cuid())
+  state     String
+  city      String
+  is_active Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([state, city], name: "state_city_unique")
+  @@index([state])
+}
+
+model ExternalApiClient {
+  id          String                  @id @default(cuid())
+  name        String                  @unique
+  isActive    Boolean                 @default(true)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  keys        ExternalApiKey[]
+  scopes      ExternalApiScope[]
+  requestLogs ExternalApiRequestLog[]
+}
+
+model ExternalApiKey {
+  id                 String                  @id @default(cuid())
+  keyId              String                  @unique
+  keyPrefix          String
+  keyHash            String                  @unique
+  isActive           Boolean                 @default(true)
+  rateLimitPerMinute Int                     @default(120)
+  expiresAt          DateTime?
+  revokedAt          DateTime?
+  lastUsedAt         DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  clientId           String
+  client             ExternalApiClient       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  requestLogs        ExternalApiRequestLog[]
+
+  @@index([clientId, isActive])
+  @@index([expiresAt])
+}
+
+model ExternalApiScope {
+  id        String            @id @default(cuid())
+  clientId  String
+  scope     String
+  createdAt DateTime          @default(now())
+  client    ExternalApiClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, scope], name: "external_api_client_scope_unique")
+  @@index([scope])
+}
+
+model ExternalApiRequestLog {
+  id         BigInt             @id @default(autoincrement())
+  requestId  String?
+  method     String
+  path       String
+  statusCode Int
+  latencyMs  Int
+  ip         String?
+  userAgent  String?
+  query      Json?
+  createdAt  DateTime           @default(now())
+  apiKeyId   String?
+  clientId   String?
+  apiKey     ExternalApiKey?    @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  client     ExternalApiClient? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([apiKeyId, createdAt])
+  @@index([clientId, createdAt])
+  @@index([path, createdAt])
+}
+
+
+
+enum AdminUserStatus {
+  REGISTERED
+  OTP_PENDING
+  ADMIN_APPROVAL_PENDING
+  ACTIVE
+  REJECTED
+}
+
+enum ReviewStatus {
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  VISIT
+  CONTACTED
+  NOTE
+  VERIFY
+}
+
+enum Status {
+  NOT_CONTACTED
+  CONTACTED
+  INTERESTED
+  MEETING_SCHEDULED
+  PROPOSAL_SENT
+  IN_PROGRESS
+  CLOSED
+}
+
+enum ContactLogType {
+  CALL
+  EMAIL
+  MEETING
+  DEMO
+  PROPOSAL
+}
+
+enum NewsSource {
+  ENTRACKR
+  YOURSTORY
+  VCCIRCLE
+  TECHCRUNCH
+  ETSTARTUP
+  INC42
+}
+
+enum ActivityEntityType {
+  TECH_PARK
+  COMPANY
+  COWORKING
+  CONTACT
+}

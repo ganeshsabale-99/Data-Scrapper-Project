@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "passwordHash" TEXT;
+ALTER TABLE "AdminUser" ADD COLUMN IF NOT EXISTS "mfaEnabled" BOOLEAN NOT NULL DEFAULT false;

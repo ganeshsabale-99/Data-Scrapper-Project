@@ -1,0 +1,98 @@
+services:
+  # PostgreSQL Database
+  - type: pserv
+    name: tech-parks-db
+    env: docker
+    dockerfilePath: ./packages/db/Dockerfile
+    plan: starter
+    region: oregon
+    envVars:
+      - key: POSTGRES_DB
+        value: techparks
+      - key: POSTGRES_USER
+        value: techparks_user
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+
+  # API Service
+  - type: web
+    name: tech-parks-api
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: |
+      # Install pnpm globally
+      npm install -g pnpm@9.0.0
+      # Install dependencies
+      pnpm install
+      # Build the API
+      cd apps/analyzer-api && pnpm run build
+    startCommand: |
+      cd apps/analyzer-api && node dist/app.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tech-parks-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: EXTERNAL_API_KEY_PEPPER
+        generateValue: true
+      - key: EXTERNAL_API_RATE_LIMIT_STORE
+        value: auto
+      - key: EXTERNAL_API_RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: EXTERNAL_API_RATE_LIMIT_REDIS_PREFIX
+        value: analyzer:external-api-rate-limit
+      - key: TWILIO_ACCOUNT_SID
+        value: your_twilio_account_sid
+      - key: TWILIO_AUTH_TOKEN
+        value: your_twilio_auth_token
+      - key: TWILIO_PHONE_NUMBER
+        value: your_twilio_phone_number
+      - key: NODEMAILER_EMAIL
+        value: your_nodemailer_email
+      - key: NODEMAILER_PASSWORD
+        value: your_nodemailer_password
+      - key: API_RATE_LIMIT_ENABLED
+        value: true
+      - key: API_RATE_LIMIT_STORE
+        value: auto
+      - key: API_RATE_LIMIT_WINDOW_MS
+        value: 60000
+      - key: API_RATE_LIMIT_MAX_REQUESTS
+        value: 250
+      - key: API_RATE_LIMIT_STORE_INIT_TIMEOUT_MS
+        value: 200
+      - key: REDIS_CONNECT_TIMEOUT_MS
+        value: 5000
+      - key: API_RATE_LIMIT_REDIS_PREFIX
+        value: analyzer:rate-limit
+      - key: LOGIN_SLOW_THRESHOLD_MS
+        value: 700
+    healthCheckPath: /health
+
+  # Database Migration Service (one-time)
+  - type: worker
+    name: db-migration
+    env: node
+    plan: starter
+    region: oregon
+    buildCommand: |
+      # Install pnpm globally
+      npm install -g pnpm@9.0.0
+      # Install dependencies
+      pnpm install
+    startCommand: |
+      cd packages/db && npx prisma migrate deploy
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tech-parks-db
+          property: connectionString
+    # This service will run once and then can be deleted
+    autoDeploy: false
