@@ -3,7 +3,7 @@ import {
   Prisma,
 } from "@repo/db";
 import { Request, Response } from "express";
-import { normalizeCity } from "../utils/cityNormalization";
+import { normalizeCity, getCityAliasMap } from "../utils/cityNormalization";
 import { getQueryString } from "../utils/queryUtils";
 import { INDIA_STATES_AND_UTS } from "../utils/indiaStates";
 import { matchEnumValue } from "../utils/enumSearch";
@@ -382,12 +382,13 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
       ? Number(((positiveResponses / contactedTechParks) * 100).toFixed(2))
       : 0;
 
+    const aliasMap = await getCityAliasMap();
     const normalizeKey = (s: string) => s.trim().toLowerCase();
     const cityMap = new Map<string, { city: string; count: number }>();
     cityGroups.forEach((group) => {
       const cityRaw = (group.city || "").trim();
       const count = Number(group._count?._all ?? 0);
-      const city = cityRaw ? normalizeCity(cityRaw) : "Unknown";
+      const city = cityRaw ? normalizeCity(cityRaw, aliasMap) : "Unknown";
       const key = normalizeKey(city);
       const existing = cityMap.get(key);
       if (existing) {

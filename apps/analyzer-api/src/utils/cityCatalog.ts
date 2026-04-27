@@ -1,6 +1,6 @@
 import { prismaInstance } from "@repo/db";
 import { INDIA_STATES_AND_UTS } from "./indiaStates";
-import { normalizeCity } from "./cityNormalization";
+import { normalizeCity, getCityAliasMap } from "./cityNormalization";
 
 export const normalizeStateName = (stateRaw: string): string => {
   const trimmed = stateRaw.trim();
@@ -22,7 +22,8 @@ export const upsertCityCatalogEntry = async (
   }
 
   const state = normalizeStateName(stateTrimmed);
-  const city = normalizeCity(cityTrimmed);
+  const aliasMap = await getCityAliasMap();
+  const city = normalizeCity(cityTrimmed, aliasMap);
 
   await prismaInstance.cityCatalog.upsert({
     where: {
