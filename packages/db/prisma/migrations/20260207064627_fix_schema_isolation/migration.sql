@@ -46,21 +46,21 @@ EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
 BEGIN;
-ALTER TABLE "tech_park"."FundingNews" ALTER COLUMN "contact_status" DROP DEFAULT;
-ALTER TABLE "tech_park"."TechPark" ALTER COLUMN "status" DROP DEFAULT;
-ALTER TABLE "tech_park"."NewTechPark" ALTER COLUMN "status" DROP DEFAULT;
-ALTER TABLE "tech_park"."ContactLog" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "data_scrapper"."FundingNews" ALTER COLUMN "contact_status" DROP DEFAULT;
+ALTER TABLE "data_scrapper"."TechPark" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "data_scrapper"."NewTechPark" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "data_scrapper"."ContactLog" ALTER COLUMN "status" DROP DEFAULT;
 
-ALTER TABLE "tech_park"."TechPark"
+ALTER TABLE "data_scrapper"."TechPark"
   ALTER COLUMN "status" TYPE "Status_new"
   USING (CASE WHEN "status"::text = 'INTRESTED' THEN 'INTERESTED' ELSE "status"::text END)::"Status_new";
-ALTER TABLE "tech_park"."NewTechPark"
+ALTER TABLE "data_scrapper"."NewTechPark"
   ALTER COLUMN "status" TYPE "Status_new"
   USING (CASE WHEN "status"::text = 'INTRESTED' THEN 'INTERESTED' ELSE "status"::text END)::"Status_new";
-ALTER TABLE "tech_park"."ContactLog"
+ALTER TABLE "data_scrapper"."ContactLog"
   ALTER COLUMN "status" TYPE "Status_new"
   USING (CASE WHEN "status"::text = 'INTRESTED' THEN 'INTERESTED' ELSE "status"::text END)::"Status_new";
-ALTER TABLE "tech_park"."FundingNews"
+ALTER TABLE "data_scrapper"."FundingNews"
   ALTER COLUMN "contact_status" TYPE "Status_new"
   USING (CASE WHEN "contact_status"::text = 'INTRESTED' THEN 'INTERESTED' ELSE "contact_status"::text END)::"Status_new";
 -- ALTER TABLE "CoworkingSpace" ALTER COLUMN "status" TYPE "Status_new" USING ("status"::text::"Status_new");
@@ -68,12 +68,12 @@ DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'tech_park' AND t.typname = 'Status'
+    WHERE n.nspname = 'data_scrapper' AND t.typname = 'Status'
   ) AND NOT EXISTS (
     SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'tech_park' AND t.typname = 'Status_old'
+    WHERE n.nspname = 'data_scrapper' AND t.typname = 'Status_old'
   ) THEN
-    EXECUTE 'ALTER TYPE "tech_park"."Status" RENAME TO "Status_old"';
+    EXECUTE 'ALTER TYPE "data_scrapper"."Status" RENAME TO "Status_old"';
   END IF;
 END $$;
 
@@ -81,28 +81,28 @@ DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'tech_park' AND t.typname = 'Status_new'
+    WHERE n.nspname = 'data_scrapper' AND t.typname = 'Status_new'
   ) AND NOT EXISTS (
     SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'tech_park' AND t.typname = 'Status'
+    WHERE n.nspname = 'data_scrapper' AND t.typname = 'Status'
   ) THEN
     EXECUTE 'ALTER TYPE "Status_new" RENAME TO "Status"';
   END IF;
 END $$;
 
-DROP TYPE IF EXISTS "tech_park"."Status_old";
-ALTER TABLE "tech_park"."FundingNews" ALTER COLUMN "contact_status" SET DEFAULT 'NOT_CONTACTED';
-ALTER TABLE "tech_park"."TechPark" ALTER COLUMN "status" SET DEFAULT 'NOT_CONTACTED';
-ALTER TABLE "tech_park"."NewTechPark" ALTER COLUMN "status" SET DEFAULT 'NOT_CONTACTED';
-ALTER TABLE "tech_park"."ContactLog" ALTER COLUMN "status" SET DEFAULT 'NOT_CONTACTED';
+DROP TYPE IF EXISTS "data_scrapper"."Status_old";
+ALTER TABLE "data_scrapper"."FundingNews" ALTER COLUMN "contact_status" SET DEFAULT 'NOT_CONTACTED';
+ALTER TABLE "data_scrapper"."TechPark" ALTER COLUMN "status" SET DEFAULT 'NOT_CONTACTED';
+ALTER TABLE "data_scrapper"."NewTechPark" ALTER COLUMN "status" SET DEFAULT 'NOT_CONTACTED';
+ALTER TABLE "data_scrapper"."ContactLog" ALTER COLUMN "status" SET DEFAULT 'NOT_CONTACTED';
 COMMIT;
 
 -- AlterTable
-ALTER TABLE "tech_park"."ContactLog" ADD COLUMN IF NOT EXISTS    "coworkingCompanyId" TEXT,
+ALTER TABLE "data_scrapper"."ContactLog" ADD COLUMN IF NOT EXISTS    "coworkingCompanyId" TEXT,
 ALTER COLUMN "companyId" DROP NOT NULL;
 
 -- AlterTable
-ALTER TABLE "tech_park"."FundingNews" DROP COLUMN IF EXISTS "date_published",
+ALTER TABLE "data_scrapper"."FundingNews" DROP COLUMN IF EXISTS "date_published",
 ADD COLUMN IF NOT EXISTS    "date_published" TIMESTAMP(3);
 
 -- AlterTable
@@ -110,18 +110,18 @@ DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'tech_park' AND table_name = 'NewTechPark' AND column_name = 'status'
+    WHERE table_schema = 'data_scrapper' AND table_name = 'NewTechPark' AND column_name = 'status'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."NewTechPark" DROP COLUMN "status"';
+    EXECUTE 'ALTER TABLE "data_scrapper"."NewTechPark" DROP COLUMN "status"';
   END IF;
-  EXECUTE 'ALTER TABLE "tech_park"."NewTechPark" ADD COLUMN IF NOT EXISTS "status" "Status" NOT NULL DEFAULT ''NOT_CONTACTED''';
+  EXECUTE 'ALTER TABLE "data_scrapper"."NewTechPark" ADD COLUMN IF NOT EXISTS "status" "Status" NOT NULL DEFAULT ''NOT_CONTACTED''';
 END $$;
 
 -- DropEnum
-DROP TYPE IF EXISTS "tech_park"."NewTechParkStatus";
+DROP TYPE IF EXISTS "data_scrapper"."NewTechParkStatus";
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "tech_park"."CoworkingSpace" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."CoworkingSpace" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "city" TEXT NOT NULL,
@@ -145,7 +145,7 @@ CREATE TABLE IF NOT EXISTS "tech_park"."CoworkingSpace" (
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "tech_park"."CoworkingCompany" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."CoworkingCompany" (
     "id" TEXT NOT NULL,
     "coworkingSpaceId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -167,9 +167,9 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'ContactLog_coworkingCompanyId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'ContactLog_coworkingCompanyId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."ContactLog" ADD CONSTRAINT "ContactLog_coworkingCompanyId_fkey" FOREIGN KEY ("coworkingCompanyId") REFERENCES "tech_park"."CoworkingCompany"("id") ON DELETE CASCADE ON UPDATE CASCADE';
+    EXECUTE 'ALTER TABLE "data_scrapper"."ContactLog" ADD CONSTRAINT "ContactLog_coworkingCompanyId_fkey" FOREIGN KEY ("coworkingCompanyId") REFERENCES "data_scrapper"."CoworkingCompany"("id") ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
 
@@ -179,8 +179,8 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'CoworkingCompany_coworkingSpaceId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'CoworkingCompany_coworkingSpaceId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."CoworkingCompany" ADD CONSTRAINT "CoworkingCompany_coworkingSpaceId_fkey" FOREIGN KEY ("coworkingSpaceId") REFERENCES "tech_park"."CoworkingSpace"("id") ON DELETE CASCADE ON UPDATE CASCADE';
+    EXECUTE 'ALTER TABLE "data_scrapper"."CoworkingCompany" ADD CONSTRAINT "CoworkingCompany_coworkingSpaceId_fkey" FOREIGN KEY ("coworkingSpaceId") REFERENCES "data_scrapper"."CoworkingSpace"("id") ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;

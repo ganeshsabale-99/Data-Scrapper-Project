@@ -1,6 +1,6 @@
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'AdminUserStatus') THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON t.typnamespace = n.oid WHERE t.typname = 'AdminUserStatus' AND n.nspname = current_schema()) THEN
         CREATE TYPE "AdminUserStatus" AS ENUM ('REGISTERED', 'OTP_PENDING', 'ADMIN_APPROVAL_PENDING', 'ACTIVE', 'REJECTED');
     END IF;
 END$$;

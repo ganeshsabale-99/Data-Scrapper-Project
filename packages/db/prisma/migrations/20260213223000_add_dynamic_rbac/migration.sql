@@ -1,6 +1,6 @@
 -- Dynamic RBAC module: Organizations, Departments, Roles, Permissions
 
-CREATE TABLE IF NOT EXISTS "tech_park"."Organization" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."Organization" (
   "id" TEXT NOT NULL,
   "name" TEXT NOT NULL,
   "slug" TEXT NOT NULL,
@@ -11,9 +11,9 @@ CREATE TABLE IF NOT EXISTS "tech_park"."Organization" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "Organization_slug_key"
-  ON "tech_park"."Organization" ("slug");
+  ON "data_scrapper"."Organization" ("slug");
 
-CREATE TABLE IF NOT EXISTS "tech_park"."Department" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."Department" (
   "id" TEXT NOT NULL,
   "name" TEXT NOT NULL,
   "normalizedName" TEXT NOT NULL,
@@ -25,16 +25,15 @@ CREATE TABLE IF NOT EXISTS "tech_park"."Department" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "department_org_normalized_unique"
-  ON "tech_park"."Department" ("organizationId", "normalizedName");
+  ON "data_scrapper"."Department" ("organizationId", "normalizedName");
 
 CREATE INDEX IF NOT EXISTS "Department_organizationId_isActive_idx"
-  ON "tech_park"."Department" ("organizationId", "isActive");
+  ON "data_scrapper"."Department" ("organizationId", "isActive");
 
-CREATE TABLE IF NOT EXISTS "tech_park"."AccessRole" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."AccessRole" (
   "id" TEXT NOT NULL,
   "name" TEXT NOT NULL,
   "normalizedName" TEXT NOT NULL,
-  "legacyRole" "tech_park"."Role",
   "organizationId" TEXT NOT NULL,
   "departmentId" TEXT NOT NULL,
   "isSystem" BOOLEAN NOT NULL DEFAULT false,
@@ -45,15 +44,12 @@ CREATE TABLE IF NOT EXISTS "tech_park"."AccessRole" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "access_role_department_normalized_unique"
-  ON "tech_park"."AccessRole" ("departmentId", "normalizedName");
+  ON "data_scrapper"."AccessRole" ("departmentId", "normalizedName");
 
 CREATE INDEX IF NOT EXISTS "AccessRole_organizationId_isActive_idx"
-  ON "tech_park"."AccessRole" ("organizationId", "isActive");
+  ON "data_scrapper"."AccessRole" ("organizationId", "isActive");
 
-CREATE INDEX IF NOT EXISTS "AccessRole_legacyRole_idx"
-  ON "tech_park"."AccessRole" ("legacyRole");
-
-CREATE TABLE IF NOT EXISTS "tech_park"."AccessPermission" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."AccessPermission" (
   "id" TEXT NOT NULL,
   "key" TEXT NOT NULL,
   "name" TEXT NOT NULL,
@@ -66,12 +62,12 @@ CREATE TABLE IF NOT EXISTS "tech_park"."AccessPermission" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "AccessPermission_key_key"
-  ON "tech_park"."AccessPermission" ("key");
+  ON "data_scrapper"."AccessPermission" ("key");
 
 CREATE INDEX IF NOT EXISTS "AccessPermission_module_idx"
-  ON "tech_park"."AccessPermission" ("module");
+  ON "data_scrapper"."AccessPermission" ("module");
 
-CREATE TABLE IF NOT EXISTS "tech_park"."AccessRolePermission" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."AccessRolePermission" (
   "roleId" TEXT NOT NULL,
   "permissionId" TEXT NOT NULL,
   "grantedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -79,9 +75,9 @@ CREATE TABLE IF NOT EXISTS "tech_park"."AccessRolePermission" (
 );
 
 CREATE INDEX IF NOT EXISTS "AccessRolePermission_permissionId_idx"
-  ON "tech_park"."AccessRolePermission" ("permissionId");
+  ON "data_scrapper"."AccessRolePermission" ("permissionId");
 
-CREATE TABLE IF NOT EXISTS "tech_park"."AdminUserAccessRole" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."AdminUserAccessRole" (
   "userId" TEXT NOT NULL,
   "roleId" TEXT NOT NULL,
   "assignedByUserId" TEXT,
@@ -90,37 +86,37 @@ CREATE TABLE IF NOT EXISTS "tech_park"."AdminUserAccessRole" (
 );
 
 CREATE INDEX IF NOT EXISTS "AdminUserAccessRole_roleId_idx"
-  ON "tech_park"."AdminUserAccessRole" ("roleId");
+  ON "data_scrapper"."AdminUserAccessRole" ("roleId");
 
 CREATE INDEX IF NOT EXISTS "AdminUserAccessRole_assignedByUserId_idx"
-  ON "tech_park"."AdminUserAccessRole" ("assignedByUserId");
+  ON "data_scrapper"."AdminUserAccessRole" ("assignedByUserId");
 
-ALTER TABLE "tech_park"."AdminUser"
+ALTER TABLE "data_scrapper"."AdminUser"
   ADD COLUMN IF NOT EXISTS "organizationId" TEXT;
 
-UPDATE "tech_park"."AdminUser"
+UPDATE "data_scrapper"."AdminUser"
 SET "organizationId" = 'org_default'
 WHERE "organizationId" IS NULL;
 
-ALTER TABLE "tech_park"."AdminUser"
+ALTER TABLE "data_scrapper"."AdminUser"
   ALTER COLUMN "organizationId" SET DEFAULT 'org_default';
 
-ALTER TABLE "tech_park"."AdminUser"
+ALTER TABLE "data_scrapper"."AdminUser"
   ALTER COLUMN "organizationId" SET NOT NULL;
 
 CREATE INDEX IF NOT EXISTS "AdminUser_organizationId_idx"
-  ON "tech_park"."AdminUser" ("organizationId");
+  ON "data_scrapper"."AdminUser" ("organizationId");
 
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'Department_organizationId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'Department_organizationId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."Department"
+    EXECUTE 'ALTER TABLE "data_scrapper"."Department"
       ADD CONSTRAINT "Department_organizationId_fkey"
-      FOREIGN KEY ("organizationId") REFERENCES "tech_park"."Organization"("id")
+      FOREIGN KEY ("organizationId") REFERENCES "data_scrapper"."Organization"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -130,11 +126,11 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'AccessRole_organizationId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'AccessRole_organizationId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."AccessRole"
+    EXECUTE 'ALTER TABLE "data_scrapper"."AccessRole"
       ADD CONSTRAINT "AccessRole_organizationId_fkey"
-      FOREIGN KEY ("organizationId") REFERENCES "tech_park"."Organization"("id")
+      FOREIGN KEY ("organizationId") REFERENCES "data_scrapper"."Organization"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -144,11 +140,11 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'AccessRole_departmentId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'AccessRole_departmentId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."AccessRole"
+    EXECUTE 'ALTER TABLE "data_scrapper"."AccessRole"
       ADD CONSTRAINT "AccessRole_departmentId_fkey"
-      FOREIGN KEY ("departmentId") REFERENCES "tech_park"."Department"("id")
+      FOREIGN KEY ("departmentId") REFERENCES "data_scrapper"."Department"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -158,11 +154,11 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'AccessRolePermission_roleId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'AccessRolePermission_roleId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."AccessRolePermission"
+    EXECUTE 'ALTER TABLE "data_scrapper"."AccessRolePermission"
       ADD CONSTRAINT "AccessRolePermission_roleId_fkey"
-      FOREIGN KEY ("roleId") REFERENCES "tech_park"."AccessRole"("id")
+      FOREIGN KEY ("roleId") REFERENCES "data_scrapper"."AccessRole"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -172,11 +168,11 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'AccessRolePermission_permissionId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'AccessRolePermission_permissionId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."AccessRolePermission"
+    EXECUTE 'ALTER TABLE "data_scrapper"."AccessRolePermission"
       ADD CONSTRAINT "AccessRolePermission_permissionId_fkey"
-      FOREIGN KEY ("permissionId") REFERENCES "tech_park"."AccessPermission"("id")
+      FOREIGN KEY ("permissionId") REFERENCES "data_scrapper"."AccessPermission"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -186,11 +182,11 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'AdminUserAccessRole_userId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'AdminUserAccessRole_userId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."AdminUserAccessRole"
+    EXECUTE 'ALTER TABLE "data_scrapper"."AdminUserAccessRole"
       ADD CONSTRAINT "AdminUserAccessRole_userId_fkey"
-      FOREIGN KEY ("userId") REFERENCES "tech_park"."AdminUser"("id")
+      FOREIGN KEY ("userId") REFERENCES "data_scrapper"."AdminUser"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -200,11 +196,11 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'AdminUserAccessRole_roleId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'AdminUserAccessRole_roleId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."AdminUserAccessRole"
+    EXECUTE 'ALTER TABLE "data_scrapper"."AdminUserAccessRole"
       ADD CONSTRAINT "AdminUserAccessRole_roleId_fkey"
-      FOREIGN KEY ("roleId") REFERENCES "tech_park"."AccessRole"("id")
+      FOREIGN KEY ("roleId") REFERENCES "data_scrapper"."AccessRole"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -214,16 +210,16 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'AdminUserAccessRole_assignedByUserId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'AdminUserAccessRole_assignedByUserId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."AdminUserAccessRole"
+    EXECUTE 'ALTER TABLE "data_scrapper"."AdminUserAccessRole"
       ADD CONSTRAINT "AdminUserAccessRole_assignedByUserId_fkey"
-      FOREIGN KEY ("assignedByUserId") REFERENCES "tech_park"."AdminUser"("id")
+      FOREIGN KEY ("assignedByUserId") REFERENCES "data_scrapper"."AdminUser"("id")
       ON DELETE SET NULL ON UPDATE CASCADE';
   END IF;
 END $$;
 
-INSERT INTO "tech_park"."Organization" (
+INSERT INTO "data_scrapper"."Organization" (
   "id", "name", "slug", "isActive", "createdAt", "updatedAt"
 )
 VALUES (
@@ -240,7 +236,7 @@ SET "name" = EXCLUDED."name",
     "isActive" = true,
     "updatedAt" = CURRENT_TIMESTAMP;
 
-INSERT INTO "tech_park"."Department" (
+INSERT INTO "data_scrapper"."Department" (
   "id", "name", "normalizedName", "organizationId", "isActive", "createdAt", "updatedAt"
 )
 VALUES (
@@ -264,16 +260,16 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'AdminUser_organizationId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'AdminUser_organizationId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."AdminUser"
+    EXECUTE 'ALTER TABLE "data_scrapper"."AdminUser"
       ADD CONSTRAINT "AdminUser_organizationId_fkey"
-      FOREIGN KEY ("organizationId") REFERENCES "tech_park"."Organization"("id")
+      FOREIGN KEY ("organizationId") REFERENCES "data_scrapper"."Organization"("id")
       ON DELETE RESTRICT ON UPDATE CASCADE';
   END IF;
 END $$;
 
-INSERT INTO "tech_park"."AccessPermission" (
+INSERT INTO "data_scrapper"."AccessPermission" (
   "id", "key", "name", "module", "description", "isSystem", "createdAt", "updatedAt"
 )
 VALUES
@@ -308,27 +304,26 @@ SET "key" = EXCLUDED."key",
     "isSystem" = EXCLUDED."isSystem",
     "updatedAt" = CURRENT_TIMESTAMP;
 
-INSERT INTO "tech_park"."AccessRole" (
-  "id", "name", "normalizedName", "legacyRole", "organizationId", "departmentId", "isSystem", "isActive", "createdAt", "updatedAt"
+INSERT INTO "data_scrapper"."AccessRole" (
+  "id", "name", "normalizedName", "organizationId", "departmentId", "isSystem", "isActive", "createdAt", "updatedAt"
 )
 VALUES
-  ('role_super_admin', 'Super Admin', 'SUPER_ADMIN', NULL, 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('role_admin', 'Admin', 'ADMIN', 'ADMIN'::"tech_park"."Role", 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('role_sales_manager', 'Sales Manager', 'SALES_MANAGER', 'SALES_MANAGER'::"tech_park"."Role", 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('role_sales_team', 'Sales Team', 'SALES_TEAM', 'SALES_TEAM'::"tech_park"."Role", 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('role_sales_executive', 'Sales Executive', 'SALES_EXECUTIVE', 'SALES_EXECUTIVE'::"tech_park"."Role", 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  ('role_user', 'User', 'USER', 'USER'::"tech_park"."Role", 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+  ('role_super_admin', 'Super Admin', 'SUPER_ADMIN', 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('role_admin', 'Admin', 'ADMIN', 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('role_sales_manager', 'Sales Manager', 'SALES_MANAGER', 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('role_sales_team', 'Sales Team', 'SALES_TEAM', 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('role_sales_executive', 'Sales Executive', 'SALES_EXECUTIVE', 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  ('role_user', 'User', 'USER', 'org_default', 'dept_system', true, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 ON CONFLICT ("id") DO UPDATE
 SET "name" = EXCLUDED."name",
     "normalizedName" = EXCLUDED."normalizedName",
-    "legacyRole" = EXCLUDED."legacyRole",
     "organizationId" = EXCLUDED."organizationId",
     "departmentId" = EXCLUDED."departmentId",
     "isSystem" = EXCLUDED."isSystem",
     "isActive" = true,
     "updatedAt" = CURRENT_TIMESTAMP;
 
-INSERT INTO "tech_park"."AccessRolePermission" ("roleId", "permissionId", "grantedAt")
+INSERT INTO "data_scrapper"."AccessRolePermission" ("roleId", "permissionId", "grantedAt")
 VALUES
   -- Super Admin
   ('role_super_admin', 'perm_system_super_admin', CURRENT_TIMESTAMP),
@@ -418,18 +413,3 @@ VALUES
   -- User
   ('role_user', 'perm_notifications_view', CURRENT_TIMESTAMP)
 ON CONFLICT ("roleId", "permissionId") DO NOTHING;
-
-INSERT INTO "tech_park"."AdminUserAccessRole" ("userId", "roleId", "assignedAt")
-SELECT
-  u."id",
-  CASE u."role"
-    WHEN 'ADMIN'::"tech_park"."Role" THEN 'role_admin'
-    WHEN 'SALES_MANAGER'::"tech_park"."Role" THEN 'role_sales_manager'
-    WHEN 'SALES_TEAM'::"tech_park"."Role" THEN 'role_sales_team'
-    WHEN 'SALES_EXECUTIVE'::"tech_park"."Role" THEN 'role_sales_executive'
-    WHEN 'USER'::"tech_park"."Role" THEN 'role_user'
-    ELSE 'role_user'
-  END AS "roleId",
-  CURRENT_TIMESTAMP
-FROM "tech_park"."AdminUser" u
-ON CONFLICT ("userId", "roleId") DO NOTHING;

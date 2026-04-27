@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "tech_park"."ExternalApiClient" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."ExternalApiClient" (
   "id" TEXT NOT NULL,
   "name" TEXT NOT NULL,
   "isActive" BOOLEAN NOT NULL DEFAULT true,
@@ -8,9 +8,9 @@ CREATE TABLE IF NOT EXISTS "tech_park"."ExternalApiClient" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "ExternalApiClient_name_key"
-  ON "tech_park"."ExternalApiClient" ("name");
+  ON "data_scrapper"."ExternalApiClient" ("name");
 
-CREATE TABLE IF NOT EXISTS "tech_park"."ExternalApiKey" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."ExternalApiKey" (
   "id" TEXT NOT NULL,
   "keyId" TEXT NOT NULL,
   "keyPrefix" TEXT NOT NULL,
@@ -27,32 +27,32 @@ CREATE TABLE IF NOT EXISTS "tech_park"."ExternalApiKey" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "ExternalApiKey_keyId_key"
-  ON "tech_park"."ExternalApiKey" ("keyId");
+  ON "data_scrapper"."ExternalApiKey" ("keyId");
 
 CREATE UNIQUE INDEX IF NOT EXISTS "ExternalApiKey_keyHash_key"
-  ON "tech_park"."ExternalApiKey" ("keyHash");
+  ON "data_scrapper"."ExternalApiKey" ("keyHash");
 
 CREATE INDEX IF NOT EXISTS "ExternalApiKey_clientId_isActive_idx"
-  ON "tech_park"."ExternalApiKey" ("clientId", "isActive");
+  ON "data_scrapper"."ExternalApiKey" ("clientId", "isActive");
 
 CREATE INDEX IF NOT EXISTS "ExternalApiKey_expiresAt_idx"
-  ON "tech_park"."ExternalApiKey" ("expiresAt");
+  ON "data_scrapper"."ExternalApiKey" ("expiresAt");
 
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'ExternalApiKey_clientId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'ExternalApiKey_clientId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."ExternalApiKey"
+    EXECUTE 'ALTER TABLE "data_scrapper"."ExternalApiKey"
       ADD CONSTRAINT "ExternalApiKey_clientId_fkey"
-      FOREIGN KEY ("clientId") REFERENCES "tech_park"."ExternalApiClient"("id")
+      FOREIGN KEY ("clientId") REFERENCES "data_scrapper"."ExternalApiClient"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
 
-CREATE TABLE IF NOT EXISTS "tech_park"."ExternalApiScope" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."ExternalApiScope" (
   "id" TEXT NOT NULL,
   "clientId" TEXT NOT NULL,
   "scope" TEXT NOT NULL,
@@ -61,26 +61,26 @@ CREATE TABLE IF NOT EXISTS "tech_park"."ExternalApiScope" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "external_api_client_scope_unique"
-  ON "tech_park"."ExternalApiScope" ("clientId", "scope");
+  ON "data_scrapper"."ExternalApiScope" ("clientId", "scope");
 
 CREATE INDEX IF NOT EXISTS "ExternalApiScope_scope_idx"
-  ON "tech_park"."ExternalApiScope" ("scope");
+  ON "data_scrapper"."ExternalApiScope" ("scope");
 
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'ExternalApiScope_clientId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'ExternalApiScope_clientId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."ExternalApiScope"
+    EXECUTE 'ALTER TABLE "data_scrapper"."ExternalApiScope"
       ADD CONSTRAINT "ExternalApiScope_clientId_fkey"
-      FOREIGN KEY ("clientId") REFERENCES "tech_park"."ExternalApiClient"("id")
+      FOREIGN KEY ("clientId") REFERENCES "data_scrapper"."ExternalApiClient"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
 
-CREATE TABLE IF NOT EXISTS "tech_park"."ExternalApiRequestLog" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."ExternalApiRequestLog" (
   "id" BIGSERIAL NOT NULL,
   "requestId" TEXT,
   "method" TEXT NOT NULL,
@@ -97,27 +97,27 @@ CREATE TABLE IF NOT EXISTS "tech_park"."ExternalApiRequestLog" (
 );
 
 CREATE INDEX IF NOT EXISTS "ExternalApiRequestLog_createdAt_idx"
-  ON "tech_park"."ExternalApiRequestLog" ("createdAt");
+  ON "data_scrapper"."ExternalApiRequestLog" ("createdAt");
 
 CREATE INDEX IF NOT EXISTS "ExternalApiRequestLog_apiKeyId_createdAt_idx"
-  ON "tech_park"."ExternalApiRequestLog" ("apiKeyId", "createdAt");
+  ON "data_scrapper"."ExternalApiRequestLog" ("apiKeyId", "createdAt");
 
 CREATE INDEX IF NOT EXISTS "ExternalApiRequestLog_clientId_createdAt_idx"
-  ON "tech_park"."ExternalApiRequestLog" ("clientId", "createdAt");
+  ON "data_scrapper"."ExternalApiRequestLog" ("clientId", "createdAt");
 
 CREATE INDEX IF NOT EXISTS "ExternalApiRequestLog_path_createdAt_idx"
-  ON "tech_park"."ExternalApiRequestLog" ("path", "createdAt");
+  ON "data_scrapper"."ExternalApiRequestLog" ("path", "createdAt");
 
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'ExternalApiRequestLog_apiKeyId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'ExternalApiRequestLog_apiKeyId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."ExternalApiRequestLog"
+    EXECUTE 'ALTER TABLE "data_scrapper"."ExternalApiRequestLog"
       ADD CONSTRAINT "ExternalApiRequestLog_apiKeyId_fkey"
-      FOREIGN KEY ("apiKeyId") REFERENCES "tech_park"."ExternalApiKey"("id")
+      FOREIGN KEY ("apiKeyId") REFERENCES "data_scrapper"."ExternalApiKey"("id")
       ON DELETE SET NULL ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -127,11 +127,11 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'ExternalApiRequestLog_clientId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'ExternalApiRequestLog_clientId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."ExternalApiRequestLog"
+    EXECUTE 'ALTER TABLE "data_scrapper"."ExternalApiRequestLog"
       ADD CONSTRAINT "ExternalApiRequestLog_clientId_fkey"
-      FOREIGN KEY ("clientId") REFERENCES "tech_park"."ExternalApiClient"("id")
+      FOREIGN KEY ("clientId") REFERENCES "data_scrapper"."ExternalApiClient"("id")
       ON DELETE SET NULL ON UPDATE CASCADE';
   END IF;
 END $$;

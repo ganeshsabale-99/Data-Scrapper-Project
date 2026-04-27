@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "tech_park"."OtpDispatchLog" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."OtpDispatchLog" (
   "id" TEXT NOT NULL,
   "phoneNumber" TEXT NOT NULL,
   "purpose" TEXT NOT NULL,
@@ -15,27 +15,27 @@ CREATE TABLE IF NOT EXISTS "tech_park"."OtpDispatchLog" (
 );
 
 CREATE INDEX IF NOT EXISTS "OtpDispatchLog_phoneNumber_createdAt_idx"
-  ON "tech_park"."OtpDispatchLog" ("phoneNumber", "createdAt" DESC);
+  ON "data_scrapper"."OtpDispatchLog" ("phoneNumber", "createdAt" DESC);
 
 CREATE INDEX IF NOT EXISTS "OtpDispatchLog_transactionId_idx"
-  ON "tech_park"."OtpDispatchLog" ("transactionId");
+  ON "data_scrapper"."OtpDispatchLog" ("transactionId");
 
 CREATE INDEX IF NOT EXISTS "OtpDispatchLog_requestId_idx"
-  ON "tech_park"."OtpDispatchLog" ("requestId");
+  ON "data_scrapper"."OtpDispatchLog" ("requestId");
 
 CREATE INDEX IF NOT EXISTS "OtpDispatchLog_userId_createdAt_idx"
-  ON "tech_park"."OtpDispatchLog" ("userId", "createdAt" DESC);
+  ON "data_scrapper"."OtpDispatchLog" ("userId", "createdAt" DESC);
 
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'OtpDispatchLog_userId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'OtpDispatchLog_userId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."OtpDispatchLog"
+    EXECUTE 'ALTER TABLE "data_scrapper"."OtpDispatchLog"
       ADD CONSTRAINT "OtpDispatchLog_userId_fkey"
-      FOREIGN KEY ("userId") REFERENCES "tech_park"."AdminUser"("id")
+      FOREIGN KEY ("userId") REFERENCES "data_scrapper"."AdminUser"("id")
       ON DELETE SET NULL ON UPDATE CASCADE';
   END IF;
 END $$;

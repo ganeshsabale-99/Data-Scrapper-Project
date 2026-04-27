@@ -2,7 +2,7 @@
 
 DO $$
 BEGIN
-  CREATE TYPE "tech_park"."NotificationType" AS ENUM (
+  CREATE TYPE "data_scrapper"."NotificationType" AS ENUM (
     'TASK_ASSIGNED',
     'TASK_UPDATED',
     'TASK_PROGRESS',
@@ -13,11 +13,11 @@ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-CREATE TABLE IF NOT EXISTS "tech_park"."Notification" (
+CREATE TABLE IF NOT EXISTS "data_scrapper"."Notification" (
   "id" TEXT NOT NULL,
   "recipientUserId" TEXT NOT NULL,
   "createdByUserId" TEXT,
-  "type" "tech_park"."NotificationType" NOT NULL,
+  "type" "data_scrapper"."NotificationType" NOT NULL,
   "title" TEXT NOT NULL,
   "message" TEXT NOT NULL,
   "entityType" TEXT,
@@ -30,27 +30,27 @@ CREATE TABLE IF NOT EXISTS "tech_park"."Notification" (
 );
 
 CREATE INDEX IF NOT EXISTS "Notification_recipientUserId_isRead_createdAt_idx"
-  ON "tech_park"."Notification" ("recipientUserId", "isRead", "createdAt");
+  ON "data_scrapper"."Notification" ("recipientUserId", "isRead", "createdAt");
 
 CREATE INDEX IF NOT EXISTS "Notification_recipientUserId_createdAt_idx"
-  ON "tech_park"."Notification" ("recipientUserId", "createdAt");
+  ON "data_scrapper"."Notification" ("recipientUserId", "createdAt");
 
 CREATE INDEX IF NOT EXISTS "Notification_type_idx"
-  ON "tech_park"."Notification" ("type");
+  ON "data_scrapper"."Notification" ("type");
 
 CREATE INDEX IF NOT EXISTS "Notification_entityType_entityId_idx"
-  ON "tech_park"."Notification" ("entityType", "entityId");
+  ON "data_scrapper"."Notification" ("entityType", "entityId");
 
 DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'Notification_recipientUserId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'Notification_recipientUserId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."Notification"
+    EXECUTE 'ALTER TABLE "data_scrapper"."Notification"
       ADD CONSTRAINT "Notification_recipientUserId_fkey"
-      FOREIGN KEY ("recipientUserId") REFERENCES "tech_park"."AdminUser"("id")
+      FOREIGN KEY ("recipientUserId") REFERENCES "data_scrapper"."AdminUser"("id")
       ON DELETE CASCADE ON UPDATE CASCADE';
   END IF;
 END $$;
@@ -60,11 +60,11 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint c
     JOIN pg_namespace n ON n.oid = c.connamespace
-    WHERE n.nspname = 'tech_park' AND c.conname = 'Notification_createdByUserId_fkey'
+    WHERE n.nspname = 'data_scrapper' AND c.conname = 'Notification_createdByUserId_fkey'
   ) THEN
-    EXECUTE 'ALTER TABLE "tech_park"."Notification"
+    EXECUTE 'ALTER TABLE "data_scrapper"."Notification"
       ADD CONSTRAINT "Notification_createdByUserId_fkey"
-      FOREIGN KEY ("createdByUserId") REFERENCES "tech_park"."AdminUser"("id")
+      FOREIGN KEY ("createdByUserId") REFERENCES "data_scrapper"."AdminUser"("id")
       ON DELETE SET NULL ON UPDATE CASCADE';
   END IF;
 END $$;
