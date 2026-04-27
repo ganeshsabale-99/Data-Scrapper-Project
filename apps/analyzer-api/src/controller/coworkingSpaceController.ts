@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { calculateStatusAnalytics } from "../utils/analyticsUtils";
 import { getQueryString } from "../utils/queryUtils";
 import { INDIA_STATES_AND_UTS } from "../utils/indiaStates";
+import { normalizeCity } from "../utils/cityNormalization";
 import { matchEnumValue } from "../utils/enumSearch";
 import { getPostgresEnumValues } from "../utils/dbEnums";
 import {
@@ -167,7 +168,7 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
         cityGroups.forEach((group) => {
             const cityRaw = (group.city || "").trim();
             const count = Number(group._count?._all ?? 0);
-            const city = cityRaw || "Unknown";
+            const city = cityRaw ? normalizeCity(cityRaw) : "Unknown";
             const key = normalizeKey(city);
             const existing = cityMap.get(key);
             if (existing) {
