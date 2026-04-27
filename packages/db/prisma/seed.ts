@@ -1,5 +1,6 @@
+/// <reference types="node" />
 import { PrismaClient } from "@prisma/client";
-import * as bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 import {
     DEFAULT_ORGANIZATION_ID,
     DEFAULT_ORGANIZATION_NAME,
@@ -200,6 +201,21 @@ async function main() {
             userId: superAdmin.id,
             roleId: "role_super_admin",
         },
+    });
+
+    // 7. Seed City Catalog
+    console.log("   - Syncing City Catalog...");
+    await prisma.cityCatalog.upsert({
+        where: { state_city_unique: { state: "Maharashtra", city: "Pune" } },
+        update: { is_active: true },
+        create: { state: "Maharashtra", city: "Pune", is_active: true },
+    });
+
+    // 8. Assign state/city to ganesh.s@mygupio.com
+    console.log("   - Updating state/city for ganesh.s@mygupio.com...");
+    await prisma.adminUser.updateMany({
+        where: { email: "ganesh.s@mygupio.com" },
+        data: { state: "Maharashtra", city: "Pune" },
     });
 
     console.log("✅ Seeding Completed Successfully.");
