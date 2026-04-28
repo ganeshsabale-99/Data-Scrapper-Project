@@ -14,8 +14,10 @@ import {
   Edit,
   User,
   Phone,
-  Mail
+  Mail,
+  Building2
 } from 'lucide-react';
+import CompanyDetailsDialog from './CompanyDetailsDialog';
 import ContactEditDialog from './ContactEditDialog';
 
 import {
@@ -113,6 +115,7 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
   const [sortField, setSortField] = useState<SortField>('date_published');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [editingItem, setEditingItem] = useState<FundingNews | null>(null);
+  const [viewDetailsItem, setViewDetailsItem] = useState<FundingNews | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Filter news based on search term
@@ -400,6 +403,21 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-purple-600 hover:bg-purple-50"
+                                  onClick={() => setViewDetailsItem(item)}
+                                >
+                                  <Building2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <span>View company details</span>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="h-7 w-7 p-0 text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
                                   onClick={() => window.open(item.article_url, '_blank')}
                                 >
@@ -483,6 +501,21 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
                       </div>
                     </div>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-purple-600 hover:bg-purple-50"
+                            onClick={() => setViewDetailsItem(item)}
+                          >
+                            <Building2 className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <span>View company details</span>
+                        </TooltipContent>
+                      </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -592,6 +625,17 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
             onUpdate?.();
             setEditingItem(null);
           }}
+        />
+      )}
+
+      {/* Company Details Dialog */}
+      {viewDetailsItem && (
+        <CompanyDetailsDialog
+          isOpen={!!viewDetailsItem}
+          onClose={() => setViewDetailsItem(null)}
+          newsId={viewDetailsItem.id}
+          articleUrl={viewDetailsItem.article_url}
+          articleTitle={viewDetailsItem.title}
         />
       )}
     </TooltipProvider>

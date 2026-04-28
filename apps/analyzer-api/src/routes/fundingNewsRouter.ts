@@ -9,7 +9,8 @@ import {
   getBookmarkedArticles,
   triggerScraping,
   getFundingStats,
-  updateContactDetails
+  updateContactDetails,
+  getCompanyDetails
 } from "../controller/fundingNewsController";
 
 export const fundingNewsRouter: ExpressRouter = Router();
@@ -21,6 +22,7 @@ const canViewFundingNews = checkPermission(["FUNDING.NEWS_VIEW"], {
 fundingNewsRouter.get("/", authenticateToken, canViewFundingNews, getAllFundingNews);
 fundingNewsRouter.get("/bookmarked", authenticateToken, canViewFundingNews, getBookmarkedArticles);
 fundingNewsRouter.get("/stats", authenticateToken, canViewFundingNews, getFundingStats);
+fundingNewsRouter.get("/company-details/:id", authenticateToken, canViewFundingNews, getCompanyDetails);
 fundingNewsRouter.get("/:id", authenticateToken, canViewFundingNews, getFundingNewsById);
 fundingNewsRouter.patch("/bookmark/:id", authenticateToken, canViewFundingNews, toggleBookmark);
 fundingNewsRouter.patch("/contact/:id", authenticateToken, canViewFundingNews, updateContactDetails);
