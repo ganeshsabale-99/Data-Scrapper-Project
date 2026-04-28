@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { ClientDetails } from './ClientDetails';
 import { Dialog, DialogContent } from '../../components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { GupioOverlayLoader } from '../../components/ui/gupio-loader';
 import { toast } from 'sonner';
 import { techParkService } from '@/services/techParkService';
@@ -382,12 +382,10 @@ export function ClientDetailsPage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Error Loading Client</h2>
           <p className="text-muted-foreground mb-4">{error}</p>
-          <button
-            onClick={handleBack}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
+          <Button onClick={handleBack} className="inline-flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
             Go Back
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -399,12 +397,10 @@ export function ClientDetailsPage() {
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Client Not Found</h2>
           <p className="text-muted-foreground mb-4">The client you're looking for doesn't exist.</p>
-          <button
-            onClick={handleBack}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
+          <Button onClick={handleBack} className="inline-flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
             Go Back
-          </button>
+          </Button>
         </div>
       </div>
     );

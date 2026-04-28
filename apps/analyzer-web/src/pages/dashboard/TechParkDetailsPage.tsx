@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/search-input";
-import { Building2, Users } from "lucide-react";
+import { Building2, Users, RefreshCcw, ArrowLeft } from "lucide-react";
 import { AddCompanyDialog } from "@/components/add-company-dialog/AddCompanyDialog";
 import { ChartContainer } from "@/components/charts/chart-containers";
 import { Pagination } from "@/components/pagination/Pagination";
@@ -210,6 +210,8 @@ export default function TechParkDetailsPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDiscoveringCompanies, setIsDiscoveringCompanies] = useState(false);
+  const autoDiscoveryAttemptedRef = useRef<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [pagination, setPagination] = useState<{
@@ -278,6 +280,7 @@ export default function TechParkDetailsPage() {
   const [isEditTechParkDialogOpen, setIsEditTechParkDialogOpen] = useState(false);
   const [isUpdatingTechPark, setIsUpdatingTechPark] = useState(false);
   const [techParkFormData, setTechParkFormData] = useState<TechParkRecord | null>(null);
+  const [heroImageSrc, setHeroImageSrc] = useState<string>("");
   const canManageTechParkData = isAdmin || isSalesManager;
   const canDeleteTechParkData = isAdmin;
   const reviewStatusLabel = useMemo(() => {
@@ -307,6 +310,14 @@ export default function TechParkDetailsPage() {
       window.removeEventListener("focus", triggerRefresh);
     };
   }, [id]);
+
+  useEffect(() => {
+    const primaryImage =
+      techPark?.photo_url ||
+      (Array.isArray(techPark?.exterior_media_urls) ? techPark.exterior_media_urls[0] : "") ||
+      "";
+    setHeroImageSrc(primaryImage);
+  }, [techPark]);
 
   useEffect(() => {
     const load = async () => {
@@ -422,6 +433,64 @@ export default function TechParkDetailsPage() {
   const handleViewDetails = (company: TechParkCompanyRecord) => {
     navigate(`/dashboard/company/${company.id}`);
   };
+
+  const handleBack = () => {
+    navigate(-1);
+  };
+
+  const handleDiscoverCompanies = async () => {
+    if (!id || isDiscoveringCompanies) return;
+
+    try {
+      setIsDiscoveringCompanies(true);
+      const response = await techParkService.discoverCompaniesByTechPark(id);
+      const summary = response?.data;
+
+      const reloadResp = await techParkService.getCompaniesByTechPark(id, page, pageSize, searchTerm || undefined);
+      const data = reloadResp?.data || {};
+      setCompanies(Array.isArray(data.items) ? data.items : []);
+      if (data.stats) setStats(data.stats);
+      if (data.statusBreakdown) {
+        setStatusBreakdown({
+          NOT_CONTACTED: data.statusBreakdown.NOT_CONTACTED || 0,
+          CONTACTED: data.statusBreakdown.CONTACTED || 0,
+          INTERESTED: data.statusBreakdown.INTERESTED || 0,
+          MEETING_SCHEDULED: data.statusBreakdown.MEETING_SCHEDULED || 0,
+          PROPOSAL_SENT: data.statusBreakdown.PROPOSAL_SENT || 0,
+          IN_PROGRESS: data.statusBreakdown.IN_PROGRESS || 0,
+          CLOSED: data.statusBreakdown.CLOSED || 0,
+        });
+      }
+      if (data.pagination) setPagination(data.pagination);
+      queryClient.invalidateQueries({ queryKey: techParkKeys.all });
+
+      toast.success(
+        `Fetched companies: ${summary?.created || 0} added, ${summary?.updated || 0} updated.`,
+      );
+    } catch (error: unknown) {
+      const errorMsg = getApiErrorMessage(error, "Failed to fetch companies for this tech park");
+      toast.error(errorMsg);
+    } finally {
+      setIsDiscoveringCompanies(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!id || !canManageTechParkData || loading || isDiscoveringCompanies) return;
+    if (searchTerm.trim()) return;
+    if (companies.length > 0) return;
+    if (autoDiscoveryAttemptedRef.current === id) return;
+
+    autoDiscoveryAttemptedRef.current = id;
+    void handleDiscoverCompanies();
+  }, [
+    id,
+    canManageTechParkData,
+    loading,
+    isDiscoveringCompanies,
+    searchTerm,
+    companies.length,
+  ]);
 
   const handleEdit = (company: TechParkCompanyRecord) => {
     setEditingCompany({
@@ -645,6 +714,13 @@ export default function TechParkDetailsPage() {
 
   return (
     <div className="p-4 space-y-6">
+      <div>
+        <Button variant="outline" onClick={handleBack} className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
       {/* Tech Park Details Section */}
       {techPark && (
         <Card className="overflow-hidden border-slate-200/70 shadow-sm">
@@ -684,13 +760,18 @@ export default function TechParkDetailsPage() {
             </CardHeader>
           </div>
 
-          {(techPark.photo_url || (techPark.exterior_media_urls && techPark.exterior_media_urls.length > 0)) && (
+          {heroImageSrc && (
             <div className="w-full h-48 sm:h-64 md:h-80 relative bg-slate-100 border-b overflow-hidden">
               <img
-                src={techPark.photo_url || techPark.exterior_media_urls?.[0]}
+                src={heroImageSrc}
                 alt={techPark.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
+                  const fallback = techPark.exterior_media_urls?.find((url) => url && url !== heroImageSrc) || "";
+                  if (fallback) {
+                    setHeroImageSrc(fallback);
+                    return;
+                  }
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
               />
@@ -861,9 +942,20 @@ export default function TechParkDetailsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-xl font-semibold">Companies</h2>
               {canManageTechParkData ? (
-                <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
-                  Add Company
-                </Button>
+                <div className="flex w-full sm:w-auto gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleDiscoverCompanies}
+                    disabled={isDiscoveringCompanies}
+                    className="w-full sm:w-auto"
+                  >
+                    <RefreshCcw className={`h-4 w-4 mr-2 ${isDiscoveringCompanies ? "animate-spin" : ""}`} />
+                    {isDiscoveringCompanies ? "Fetching..." : "Fetch Companies"}
+                  </Button>
+                  <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
+                    Add Company
+                  </Button>
+                </div>
               ) : null}
             </div>
 

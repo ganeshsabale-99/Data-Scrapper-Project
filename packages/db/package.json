@@ -24,6 +24,7 @@
     "prisma:db:push": "prisma db push",
     "import:tech-parks": "tsx scripts/import-tech-parks.ts",
     "import:tech-parks:custom": "tsx scripts/import-tech-parks.ts",
+    "backfill:tech-park-websites": "tsx scripts/backfill-tech-park-websites.ts",
     "validate:tech-parks": "tsx scripts/validate-data.ts",
     "validate:tech-parks:custom": "tsx scripts/validate-data.ts",
     "full-import": "./scripts/full-import.sh",

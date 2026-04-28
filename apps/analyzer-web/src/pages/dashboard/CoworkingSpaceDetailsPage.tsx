@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/search-input";
-import { Building2, Users } from "lucide-react";
+import { Building2, Users, ArrowLeft } from "lucide-react";
 import { AddCoworkingCompanyDialog } from "@/components/coworking-spaces/AddCoworkingCompanyDialog";
 import { ChartContainer } from "@/components/charts/chart-containers";
 import { Pagination } from "@/components/pagination/Pagination";
@@ -180,6 +180,9 @@ export default function CoworkingSpaceDetailsPage() {
     contact_email: "",
     contact_international_phone: "",
   });
+  const handleBack = () => {
+    navigate(-1);
+  };
 
   // Delete modal state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -487,6 +490,13 @@ export default function CoworkingSpaceDetailsPage() {
 
   return (
     <div className="p-4 space-y-6">
+      <div>
+        <Button variant="outline" onClick={handleBack} className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
       {/* Coworking Space Details Section */}
       {coworkingSpace && (
         <Card className="overflow-hidden border-slate-200/70 shadow-sm">

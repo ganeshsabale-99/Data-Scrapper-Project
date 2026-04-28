@@ -676,11 +676,22 @@ export default function MockTechParkDashboard() {
     navigate(`${basePath}/${encodeURIComponent(state)}`);
   };
 
+  const handleBackToStates = () => {
+    const basePath = getBasePath(pathname);
+    navigate(basePath);
+  };
+
   const handleCityClick = (city: string) => {
     if (effectiveStateForCityView) {
       const basePath = getBasePath(pathname);
       navigate(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}/${encodeURIComponent(city)}`);
     }
+  };
+
+  const handleBackToCities = () => {
+    if (!effectiveStateForCityView) return;
+    const basePath = getBasePath(pathname);
+    navigate(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}`);
   };
 
 
@@ -1003,6 +1014,7 @@ export default function MockTechParkDashboard() {
           isLoading={currentStateWiseLoading}
           stateName={effectiveStateForCityView}
           onCityClick={handleCityClick}
+          onBack={handleBackToStates}
         />
       )}
 
@@ -1015,6 +1027,7 @@ export default function MockTechParkDashboard() {
           isLoading={currentCityLoading}
           cityName={selectedCityForDetailView}
           stateName={effectiveStateForCityView}
+          onBack={handleBackToCities}
           isAddDialogOpen={isAddDialogOpen}
           onAddDialogOpenChange={setIsAddDialogOpen}
           newLocation={newLocation}

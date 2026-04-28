@@ -22,6 +22,7 @@ import {
   editTechPark,
   getTechParkById,
   getCompaniesByTechPark,
+  discoverCompaniesForTechPark,
   addCompanyToTechPark,
   getCompanyById,
   updateCompany,
@@ -157,6 +158,12 @@ newTechparksRouter.get(
   authenticateToken,
   canViewTechParks,
   getCompaniesByTechPark,
+);
+newTechparksRouter.post(
+  "/:techParkId/companies/discover",
+  authenticateToken,
+  canManageTechParks,
+  discoverCompaniesForTechPark,
 );
 newTechparksRouter.post(
   "/:techParkId/companies",

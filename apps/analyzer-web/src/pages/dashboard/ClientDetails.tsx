@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Edit, Phone, Mail, MapPin, Building, Star, Globe, Clock, Trash } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Mail, MapPin, Building, Star, Globe, Clock, Trash } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -34,7 +34,7 @@ interface ClientDetailsProps {
   onDelete: (client: ClientDetailsRecord) => void;
 }
 
-export function ClientDetails({ client, onEdit, onDelete }: ClientDetailsProps) {
+export function ClientDetails({ client, onBack, onEdit, onDelete }: ClientDetailsProps) {
 
 
 
@@ -66,6 +66,10 @@ export function ClientDetails({ client, onEdit, onDelete }: ClientDetailsProps) 
     <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
+          <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
               {client.name || client._metadata?.rawApiData?.name || client._metadata?.normalizedData?.name || 'Company Details'}

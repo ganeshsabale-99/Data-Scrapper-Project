@@ -149,7 +149,33 @@ class TechParkImporter {
       });
 
       if (existing) {
-        console.log(`Skipping existing record: ${data.place_id} - ${data.name}`);
+        const patchData: Record<string, unknown> = {};
+
+        if (!existing.website && transformedData.website) {
+          patchData.website = transformedData.website;
+        }
+        if (!existing.map_url && transformedData.map_url) {
+          patchData.map_url = transformedData.map_url;
+        }
+        if (!existing.reception_phone && transformedData.reception_phone) {
+          patchData.reception_phone = transformedData.reception_phone;
+        }
+        if (!existing.international_phone && transformedData.international_phone) {
+          patchData.international_phone = transformedData.international_phone;
+        }
+
+        if (Object.keys(patchData).length > 0) {
+          await this.retryOperation(async () => {
+            await this.prisma.newTechPark.update({
+              where: { place_id: data.place_id },
+              data: patchData,
+            });
+          });
+          console.log(`Updated missing fields for existing record: ${data.place_id} - ${data.name}`);
+        } else {
+          console.log(`Skipping existing record: ${data.place_id} - ${data.name}`);
+        }
+
         this.stats.skipped++;
         return true;
       }

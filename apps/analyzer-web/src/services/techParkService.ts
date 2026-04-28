@@ -330,6 +330,11 @@ export const techParkService = {
     return response.data;
   },
 
+  async discoverCompaniesByTechPark(techParkId: string) {
+    const response = await axiosInstance.post(`/new-techparks/${techParkId}/companies/discover`);
+    return response.data;
+  },
+
   async updateCompany(companyId: string, payload: {
     name?: string;
     address?: string;
