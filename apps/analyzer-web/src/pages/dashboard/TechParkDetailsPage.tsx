@@ -23,6 +23,8 @@ import { ActivityTimeline } from "@/components/tech-parks/ActivityTimeline";
 import { AddVisitModal } from "@/components/tech-parks/AddVisitModal";
 import { AddContactLogModal } from "@/components/tech-parks/AddContactLogModal";
 import type { LucideIcon } from "lucide-react";
+import { PlacesReviews } from "@/components/places-reviews/PlacesReviews";
+import { ParkingComplaintsReviews } from "@/components/places-reviews/ParkingComplaintsReviews";
 
 type ApiErrorShape = {
   response?: {
@@ -806,6 +808,28 @@ export default function TechParkDetailsPage() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Google Reviews Section */}
+      {techPark && (
+        <PlacesReviews
+          name={techPark.name || ""}
+          location={[techPark.city, techPark.state].filter(Boolean).join(", ")}
+          rating={techPark.rating}
+          totalRatings={techPark.total_ratings}
+          mapUrl={techPark.map_url}
+        />
+      )}
+
+      {/* Parking Complaints Section */}
+      {techPark && (
+        <ParkingComplaintsReviews
+          name={techPark.name || ""}
+          location={[techPark.city, techPark.state].filter(Boolean).join(", ")}
+          rating={techPark.rating}
+          totalRatings={techPark.total_ratings}
+          mapUrl={techPark.map_url}
+        />
       )}
 
       {/* Tabs Layout */}

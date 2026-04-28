@@ -19,6 +19,7 @@ import { mediaRouter } from "./routes/mediaRouter";
 import { rbacRouter } from "./routes/rbacRouter";
 import { exportRouter } from "./routes/exportRouter";
 import { externalTechparksRouter } from "./routes/externalTechparksRouter";
+import { placesReviewRouter } from "./routes/placesReviewRouter";
 import { requestContextMiddleware } from "./middleware/requestContext";
 import {
   closeRateLimitStore,
@@ -193,6 +194,7 @@ app.use("/funding-news", fundingNewsRouter);
 app.use("/media", authenticateToken, mediaRouter);
 app.use("/rbac", rbacRouter);
 app.use("/export", exportRouter);
+app.use("/places-reviews", placesReviewRouter);
 
 app.use((req: Request, res: Response) => {
   return res.status(404).json({

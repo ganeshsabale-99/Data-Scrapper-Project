@@ -19,6 +19,8 @@ import { useRoleAccess } from "@/hooks/use-role-access";
 import { AddLocationDialog } from "@/components/add-location-dialog/AddLocationDialog";
 import { statuses } from "@/const/contact-status";
 import type { LucideIcon } from "lucide-react";
+import { PlacesReviews } from "@/components/places-reviews/PlacesReviews";
+import { ParkingComplaintsReviews } from "@/components/places-reviews/ParkingComplaintsReviews";
 
 type ApiErrorShape = {
   response?: {
@@ -634,6 +636,28 @@ export default function CoworkingSpaceDetailsPage() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Google Reviews Section */}
+      {coworkingSpace && (
+        <PlacesReviews
+          name={coworkingSpace.name || ""}
+          location={[coworkingSpace.city, coworkingSpace.state].filter(Boolean).join(", ")}
+          rating={coworkingSpace.rating}
+          totalRatings={coworkingSpace.total_ratings}
+          mapUrl={coworkingSpace.map_url}
+        />
+      )}
+
+      {/* Parking Complaints Section */}
+      {coworkingSpace && (
+        <ParkingComplaintsReviews
+          name={coworkingSpace.name || ""}
+          location={[coworkingSpace.city, coworkingSpace.state].filter(Boolean).join(", ")}
+          rating={coworkingSpace.rating}
+          totalRatings={coworkingSpace.total_ratings}
+          mapUrl={coworkingSpace.map_url}
+        />
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
