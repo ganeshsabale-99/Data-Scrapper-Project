@@ -4,7 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { useOverviewData, useStateWiseData } from "@/hooks/use-tech-park-queries";
+import { 
+    useOverviewData, 
+    useStateWiseData 
+} from "@/hooks/use-tech-park-queries";
+import { 
+    useCoworkingSpaceOverviewData, 
+    useCoworkingSpaceStateWiseData 
+} from "@/hooks/use-coworking-space-queries";
 import { toast } from "sonner";
 import { getAuthToken } from "@/lib/token";
 import { axiosInstance } from "@/config/axios";
@@ -15,8 +22,79 @@ export default function ReportsPage() {
     const [selectedState, setSelectedState] = useState<string>("all");
     const [selectedCity, setSelectedCity] = useState<string>("all");
 
-    const { data: overviewData } = useOverviewData();
-    const { data: stateData } = useStateWiseData(selectedState === "all" ? "" : selectedState);
+    const { data: tpOverview } = useOverviewData();
+    const { data: tpStateData } = useStateWiseData(selectedState === "all" ? "" : selectedState);
+    const { data: csOverview } = useCoworkingSpaceOverviewData();
+    const { data: csStateData } = useCoworkingSpaceStateWiseData(selectedState === "all" ? "" : selectedState);
+
+    // Merge states for the dropdown
+    const allStates = (() => {
+        const statesMap = new Map<string, number>();
+        
+        if (entityType === "all" || entityType === "techPark") {
+            tpOverview?.stateData?.forEach(s => {
+                statesMap.set(s.state, (statesMap.get(s.state) || 0) + s.count);
+            });
+        }
+        
+        if (entityType === "all" || entityType === "coworkingSpace") {
+            csOverview?.stateData?.forEach(s => {
+                statesMap.set(s.state, (statesMap.get(s.state) || 0) + s.count);
+            });
+        }
+        
+        return Array.from(statesMap.entries())
+            .map(([state, count]) => ({ state, count }))
+            .sort((a, b) => a.state.localeCompare(b.state));
+    })();
+
+    // Merge cities for the selected state
+    const allCities = (() => {
+        const citiesMap = new Map<string, number>();
+        
+        if (entityType === "all" || entityType === "techPark") {
+            tpStateData?.cityData?.forEach(c => {
+                citiesMap.set(c.city, (citiesMap.get(c.city) || 0) + c.count);
+            });
+        }
+        
+        if (entityType === "all" || entityType === "coworkingSpace") {
+            csStateData?.cityData?.forEach(c => {
+                citiesMap.set(c.city, (citiesMap.get(c.city) || 0) + c.count);
+            });
+        }
+        
+        return Array.from(citiesMap.entries())
+            .map(([city, count]) => ({ city, count }))
+            .sort((a, b) => a.city.localeCompare(b.city));
+    })();
+
+    // Calculate total record count preview
+    const recordCount = (() => {
+        let count = 0;
+        
+        const getTpCount = () => {
+            if (selectedState === "all") return tpOverview?.totalTechParks || 0;
+            if (selectedCity === "all") return tpStateData?.totalTechParks || 0;
+            return tpStateData?.cityData?.find(c => c.city === selectedCity)?.count || 0;
+        };
+        
+        const getCsCount = () => {
+            if (selectedState === "all") return csOverview?.totalCoworkingSpaces || 0;
+            if (selectedCity === "all") return csStateData?.totalCoworkingSpaces || 0;
+            return csStateData?.cityData?.find(c => c.city === selectedCity)?.count || 0;
+        };
+
+        if (entityType === "all") {
+            count = getTpCount() + getCsCount();
+        } else if (entityType === "techPark") {
+            count = getTpCount();
+        } else if (entityType === "coworkingSpace") {
+            count = getCsCount();
+        }
+        
+        return count;
+    })();
 
     const isEntityType = (value: string): value is "all" | "techPark" | "coworkingSpace" =>
         value === "all" || value === "techPark" || value === "coworkingSpace";
@@ -141,7 +219,7 @@ export default function ReportsPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All States</SelectItem>
-                                    {overviewData?.stateData?.map((item) => (
+                                    {allStates.map((item) => (
                                         <SelectItem key={item.state} value={item.state}>
                                             {item.state} ({item.count})
                                         </SelectItem>
@@ -162,7 +240,7 @@ export default function ReportsPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Cities</SelectItem>
-                                    {stateData?.cityData?.map((item) => (
+                                    {allCities.map((item) => (
                                         <SelectItem key={item.city} value={item.city}>
                                             {item.city} ({item.count})
                                         </SelectItem>
@@ -172,23 +250,40 @@ export default function ReportsPage() {
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap gap-4 pt-4">
-                        <Button
-                            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                            onClick={() => handleDownload("excel")}
-                        >
-                            <FileSpreadsheet className="h-4 w-4" />
-                            Download Excel
-                        </Button>
+                    <div className="pt-4 space-y-4">
+                        <div className="flex items-center gap-2">
+                            {recordCount > 0 ? (
+                                <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                                    {recordCount.toLocaleString()} {recordCount === 1 ? 'record' : 'records'} will be exported
+                                </p>
+                            ) : (
+                                <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                                    No data available for selected filters
+                                </p>
+                            )}
+                        </div>
 
-                        <Button
-                            className="flex items-center gap-2"
-                            variant="outline"
-                            onClick={() => handleDownload("csv")}
-                        >
-                            <FileText className="h-4 w-4" />
-                            Download CSV
-                        </Button>
+                        <div className="flex flex-wrap gap-4">
+                            <Button
+                                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                                onClick={() => handleDownload("excel")}
+                                disabled={recordCount === 0}
+                            >
+                                <FileSpreadsheet className="h-4 w-4" />
+                                Download Excel
+                            </Button>
+
+                            <Button
+                                className="flex items-center gap-2"
+                                variant="outline"
+                                onClick={() => handleDownload("csv")}
+                                disabled={recordCount === 0}
+                            >
+                                <FileText className="h-4 w-4" />
+                                Download CSV
+                            </Button>
+                        </div>
+                    </div>
 
                         {/* <Button
                             className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white"
@@ -197,7 +292,6 @@ export default function ReportsPage() {
                             <Download className="h-4 w-4" />
                             Download PDF
                         </Button> */}
-                    </div>
                 </CardContent>
             </Card>
         </div>
