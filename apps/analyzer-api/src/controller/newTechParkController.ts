@@ -357,7 +357,7 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
         _count: { _all: true },
       }),
       prismaInstance.newTechPark.groupBy({
-        by: ["city"],
+        by: ["city", "district"],
         where: techParkWhere,
         _count: { _all: true },
       }),
@@ -385,8 +385,11 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
     const cityMap = new Map<string, { city: string; count: number }>();
     cityGroups.forEach((group) => {
       const cityRaw = (group.city || "").trim();
+      const districtRaw = (group.district || "").trim();
       const count = Number(group._count?._all ?? 0);
-      const city = cityRaw || "Unknown";
+      
+      // Use district as primary, fallback to city
+      const city = districtRaw || cityRaw || "Unknown";
       const key = normalizeKey(city);
       const existing = cityMap.get(key);
       if (existing) {
@@ -459,7 +462,10 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
     const baseWhere: any = {
       is_active: true,
       state: { equals: state, mode: "insensitive" },
-      city: { equals: city, mode: "insensitive" },
+      OR: [
+        { city: { equals: city, mode: "insensitive" } },
+        { district: { equals: city, mode: "insensitive" } },
+      ],
     };
     applyScopeToStateCityWhere(baseWhere, scope);
 

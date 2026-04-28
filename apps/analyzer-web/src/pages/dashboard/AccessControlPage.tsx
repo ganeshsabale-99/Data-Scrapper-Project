@@ -12,6 +12,8 @@ import {
   type AccessRole,
 } from "@/services/rbacService";
 import { getUser, setUser } from "@/lib/token";
+import { UserManagementNav } from "@/components/users/UserManagementNav";
+
 
 type PermissionMap = Record<string, string[]>;
 type ApiErrorShape = {
@@ -300,6 +302,7 @@ export default function AccessControlPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <UserManagementNav />
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Permission Matrix</h1>

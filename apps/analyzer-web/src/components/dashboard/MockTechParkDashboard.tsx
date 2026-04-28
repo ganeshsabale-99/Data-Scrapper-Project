@@ -305,7 +305,16 @@ export default function MockTechParkDashboard() {
       ? currentStateWiseError?.message || null
       : cityStateResolutionError || currentCityError?.message || null;
 
-  const [selectedStateFilter] = useState<string>("ALL");
+  const selectedStateFilter = useMemo(() => effectiveStateForCityView || "ALL", [effectiveStateForCityView]);
+
+  const handleStateFilterChange = (newState: string) => {
+    const basePath = getBasePath(pathname);
+    if (newState === "ALL") {
+      navigate(basePath);
+    } else {
+      navigate(`${basePath}/${encodeURIComponent(newState)}`);
+    }
+  };
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -963,7 +972,13 @@ export default function MockTechParkDashboard() {
     return (
       <div className="flex flex-col gap-6 p-4">
         <DashboardHeader title={getPageTitle(pathname, segment)} breadcrumbs={generateBreadcrumbs()} />
-        <DashboardControls segment={segment} onSegmentChange={setSegment} isLoading={isLoading} />
+        <DashboardControls 
+          segment={segment} 
+          onSegmentChange={setSegment} 
+          isLoading={isLoading} 
+          selectedState={selectedStateFilter}
+          onStateChange={handleStateFilterChange}
+        />
         <ErrorDisplay error={error} showRetry onRetry={() => window.location.reload()} />
       </div>
     );
@@ -981,6 +996,8 @@ export default function MockTechParkDashboard() {
         segment={segment}
         onSegmentChange={setSegment}
         isLoading={isLoading}
+        selectedState={selectedStateFilter}
+        onStateChange={handleStateFilterChange}
       />
 
       {currentView === "states" && selectedStateFilter === "ALL" && (
