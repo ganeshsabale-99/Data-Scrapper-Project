@@ -19,7 +19,7 @@
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:reset": "prisma migrate reset",
-    "prisma:studio": "prisma studio",
+    "prisma:studio": "prisma studio --schema ./prisma/schema.prisma --browser none",
     "prisma:format": "prisma format",
     "prisma:db:push": "prisma db push",
     "import:tech-parks": "tsx scripts/import-tech-parks.ts",
