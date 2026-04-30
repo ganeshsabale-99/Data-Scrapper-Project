@@ -13,6 +13,7 @@ import { newTechparksRouter } from "./routes/newTechparksRouter";
 import { coworkingSpacesRouter } from "./routes/coworkingSpacesRouter";
 import { contactLogRouter } from "./routes/contactLogRouter";
 import { fundingNewsRouter } from "./routes/fundingNewsRouter";
+import { articleSummaryRouter } from "./routes/articleSummaryRouter";
 import { startNewsScheduler } from "./libs/newsScheduler";
 
 import { mediaRouter } from "./routes/mediaRouter";
@@ -191,6 +192,7 @@ app.use("/new-techparks", newTechparksRouter);
 app.use("/coworking-spaces", coworkingSpacesRouter);
 app.use("/contact-logs", authenticateToken, contactLogRouter);
 app.use("/funding-news", fundingNewsRouter);
+app.use("/articles", articleSummaryRouter);
 app.use("/media", authenticateToken, mediaRouter);
 app.use("/rbac", rbacRouter);
 app.use("/export", exportRouter);
