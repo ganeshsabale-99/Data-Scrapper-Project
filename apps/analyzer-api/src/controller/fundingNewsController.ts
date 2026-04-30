@@ -3,6 +3,7 @@ import { prismaInstance } from "@repo/db";
 import { triggerManualScraping } from "../libs/newsScheduler";
 import { getQueryString } from "../utils/queryUtils";
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
+import { scrapeCompanyDetails, extractCompanyNameSmart } from "../libs/scrapeCompanyDetails";
 
 const sendFundingSafeError = (
   res: Response,
@@ -323,3 +324,37 @@ export const getFundingStats = async (
     );
   }
 };
+
+export const getCompanyDetails = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const id = getQueryString(req.params.id);
+
+    const article = await prismaInstance.fundingNews.findUnique({
+      where: { id }
+    });
+
+    if (!article) {
+      return res.status(404).json({ error: "Article not found." });
+    }
+
+    // Extract company name using Gemini AI (falls back to regex)
+    const companyName = await extractCompanyNameSmart(article.title, article.company_name || undefined);
+
+    // Scrape the article page for company details
+    const details = await scrapeCompanyDetails(article.article_url, companyName);
+
+    return res.status(200).json({ data: details });
+  } catch (error: any) {
+    return sendFundingSafeError(
+      res,
+      error,
+      "getCompanyDetails",
+      "Unable to fetch company details right now. Please try again.",
+    );
+  }
+};
+
