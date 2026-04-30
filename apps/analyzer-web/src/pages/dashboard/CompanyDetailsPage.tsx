@@ -174,11 +174,16 @@ export function CompanyDetailsPage() {
   useEffect(() => {
     if (!companyId) return;
     const triggerRefresh = () => setRefreshTick((v) => v + 1);
-    const intervalId = window.setInterval(triggerRefresh, 30 * 1000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        triggerRefresh();
+      }
+    };
     window.addEventListener("focus", triggerRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      window.clearInterval(intervalId);
       window.removeEventListener("focus", triggerRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [companyId]);
 

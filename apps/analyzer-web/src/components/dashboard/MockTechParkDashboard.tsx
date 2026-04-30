@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { DashboardHeader } from "./DashboardHeader";
@@ -59,7 +59,7 @@ import { useOperationStatus } from "@/hooks/use-operation-status";
 import { getUserPermissions, hasPermission } from "@/lib/token";
 import type { Location } from "@/pages/dashboard/LocationTable";
 import { techParkService, type CityWiseOverviewData, type CityWiseOverviewItem, type OverviewData, type StateWiseOverviewData, type VerifiedFilter } from "@/services/techParkService";
-import type { CoworkingSpaceCityWiseOverviewData, CoworkingSpaceCityWiseOverviewItem, CoworkingSpaceOverviewData, CoworkingSpaceStateWiseOverviewData } from "@/services/coworkingSpaceService";
+import { coworkingSpaceService, type CoworkingSpaceCityWiseOverviewData, type CoworkingSpaceCityWiseOverviewItem, type CoworkingSpaceOverviewData, type CoworkingSpaceStateWiseOverviewData } from "@/services/coworkingSpaceService";
 
 type ApiErrorShape = {
   response?: {
@@ -121,6 +121,7 @@ export default function MockTechParkDashboard() {
   const params = useParams<{ state?: string; city?: string }>();
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const queryClient = useQueryClient();
   const normalizedPermissionSet = useMemo(
     () =>
       new Set(
@@ -187,21 +188,31 @@ export default function MockTechParkDashboard() {
   const effectiveStateForCityView =
     selectedStateForCityView || cityStateLookupData?.data?.state;
 
+  const isTechParksSegment = segment === "techParks";
+  const shouldLoadOverview = currentView === "states";
+  const shouldLoadStateWise = currentView === "state-details";
+  const shouldLoadCityWise = currentView === "city-details";
+
   const {
     data: overviewData,
     isLoading: isOverviewLoading,
     error: overviewError
-  } = useOverviewData();
+  } = useOverviewData({
+    enabled: isTechParksSegment && shouldLoadOverview,
+  });
 
   const {
     data: stateWiseData,
     isLoading: isStateWiseLoading,
     error: stateWiseError
-  } = useStateWiseData(effectiveStateForCityView || "");
+  } = useStateWiseData(effectiveStateForCityView || "", {
+    enabled: isTechParksSegment && shouldLoadStateWise,
+  });
 
   const {
     data: cityWiseData,
     isLoading: isCityLoading,
+    isFetching: isCityFetching,
     error: cityError
   } = useCityWiseData(
     effectiveStateForCityView || "",
@@ -210,23 +221,31 @@ export default function MockTechParkDashboard() {
     cityPageSize,
     debouncedCitySearchTerm,
     verificationFilter,
+    {
+      enabled: isTechParksSegment && shouldLoadCityWise,
+    },
   );
 
   const {
     data: coworkingOverviewData,
     isLoading: isCoworkingOverviewLoading,
     error: coworkingOverviewError
-  } = useCoworkingSpaceOverviewData();
+  } = useCoworkingSpaceOverviewData({
+    enabled: !isTechParksSegment && shouldLoadOverview,
+  });
 
   const {
     data: coworkingStateWiseData,
     isLoading: isCoworkingStateWiseLoading,
     error: coworkingStateWiseError
-  } = useCoworkingSpaceStateWiseData(effectiveStateForCityView || "");
+  } = useCoworkingSpaceStateWiseData(effectiveStateForCityView || "", {
+    enabled: !isTechParksSegment && shouldLoadStateWise,
+  });
 
   const {
     data: coworkingCityWiseData,
     isLoading: isCoworkingCityLoading,
+    isFetching: isCoworkingCityFetching,
     error: coworkingCityError
   } = useCoworkingSpaceCityWiseData(
     effectiveStateForCityView || "",
@@ -234,7 +253,10 @@ export default function MockTechParkDashboard() {
     cityPage,
     cityPageSize,
     debouncedCitySearchTerm,
-    verificationFilter
+    verificationFilter,
+    {
+      enabled: !isTechParksSegment && shouldLoadCityWise,
+    }
   );
 
   const addTechParkMutation = useAddTechPark();
@@ -673,6 +695,19 @@ export default function MockTechParkDashboard() {
 
   const handleStateClick = (state: string) => {
     const basePath = getBasePath(pathname);
+    if (segment === "techParks") {
+      void queryClient.prefetchQuery({
+        queryKey: ["techParks", "stateWise", state],
+        queryFn: () => techParkService.getStateWiseOverview(state),
+        staleTime: 5 * 60 * 1000,
+      });
+    } else {
+      void queryClient.prefetchQuery({
+        queryKey: ["coworkingSpaces", "stateWise", state],
+        queryFn: () => coworkingSpaceService.getStateWiseOverview(state),
+        staleTime: 5 * 60 * 1000,
+      });
+    }
     navigate(`${basePath}/${encodeURIComponent(state)}`);
   };
 
@@ -684,6 +719,35 @@ export default function MockTechParkDashboard() {
   const handleCityClick = (city: string) => {
     if (effectiveStateForCityView) {
       const basePath = getBasePath(pathname);
+      if (segment === "techParks") {
+        void queryClient.prefetchQuery({
+          queryKey: ["techParks", "cityWise", effectiveStateForCityView, city, 1, cityPageSize, "", "ALL"],
+          queryFn: () =>
+            techParkService.getCityWiseOverview(
+              effectiveStateForCityView,
+              city,
+              1,
+              cityPageSize,
+              undefined,
+              "ALL",
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
+      } else {
+        void queryClient.prefetchQuery({
+          queryKey: ["coworkingSpaces", "cityWise", effectiveStateForCityView, city, 1, cityPageSize, "ALL", ""],
+          queryFn: () =>
+            coworkingSpaceService.getCityWiseOverview(
+              effectiveStateForCityView,
+              city,
+              1,
+              cityPageSize,
+              undefined,
+              "ALL",
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
+      }
       navigate(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}/${encodeURIComponent(city)}`);
     }
   };
@@ -961,6 +1025,158 @@ export default function MockTechParkDashboard() {
     return { labels: [], values: [] };
   }, [currentStateWiseData]);
 
+  useEffect(() => {
+    if (currentView !== "states") return;
+
+    const topStates = (currentOverviewData?.stateData ?? [])
+      .filter((item) => typeof item?.state === "string" && item.state.trim().length > 0)
+      .slice(0, 4);
+
+    topStates.forEach((item) => {
+      const state = item.state.trim();
+
+      if (segment === "techParks") {
+        void queryClient.prefetchQuery({
+          queryKey: ["techParks", "stateWise", state],
+          queryFn: () => techParkService.getStateWiseOverview(state),
+          staleTime: 5 * 60 * 1000,
+        });
+      } else {
+        void queryClient.prefetchQuery({
+          queryKey: ["coworkingSpaces", "stateWise", state],
+          queryFn: () => coworkingSpaceService.getStateWiseOverview(state),
+          staleTime: 5 * 60 * 1000,
+        });
+      }
+    });
+  }, [currentOverviewData, currentView, queryClient, segment]);
+
+  useEffect(() => {
+    if (currentView !== "state-details" || !effectiveStateForCityView) return;
+
+    const topCities = (currentStateWiseData?.cityData ?? [])
+      .filter((item) => typeof item?.city === "string" && item.city.trim().length > 0)
+      .slice(0, 5);
+
+    topCities.forEach((item) => {
+      const city = item.city.trim();
+
+      if (segment === "techParks") {
+        void queryClient.prefetchQuery({
+          queryKey: ["techParks", "cityWise", effectiveStateForCityView, city, 1, cityPageSize, "", "ALL"],
+          queryFn: () =>
+            techParkService.getCityWiseOverview(
+              effectiveStateForCityView,
+              city,
+              1,
+              cityPageSize,
+              undefined,
+              "ALL",
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
+      } else {
+        void queryClient.prefetchQuery({
+          queryKey: ["coworkingSpaces", "cityWise", effectiveStateForCityView, city, 1, cityPageSize, "ALL", ""],
+          queryFn: () =>
+            coworkingSpaceService.getCityWiseOverview(
+              effectiveStateForCityView,
+              city,
+              1,
+              cityPageSize,
+              undefined,
+              "ALL",
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
+      }
+    });
+  }, [cityPageSize, currentStateWiseData, currentView, effectiveStateForCityView, queryClient, segment]);
+
+  useEffect(() => {
+    if (
+      currentView !== "city-details" ||
+      !effectiveStateForCityView ||
+      !selectedCityForDetailView
+    ) {
+      return;
+    }
+
+    const totalPages =
+      segment === "techParks"
+        ? cityWiseData?.totalPages ?? 0
+        : coworkingCityWiseData?.totalPages ?? 0;
+
+    if (totalPages <= 1) return;
+
+    const pagesToWarm = [cityPage + 1, cityPage - 1].filter(
+      (page) => page >= 1 && page <= totalPages,
+    );
+
+    pagesToWarm.forEach((targetPage) => {
+      if (segment === "techParks") {
+        void queryClient.prefetchQuery({
+          queryKey: [
+            "techParks",
+            "cityWise",
+            effectiveStateForCityView,
+            selectedCityForDetailView,
+            targetPage,
+            cityPageSize,
+            debouncedCitySearchTerm,
+            verificationFilter,
+          ],
+          queryFn: () =>
+            techParkService.getCityWiseOverview(
+              effectiveStateForCityView,
+              selectedCityForDetailView,
+              targetPage,
+              cityPageSize,
+              debouncedCitySearchTerm || undefined,
+              verificationFilter,
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
+        return;
+      }
+
+      void queryClient.prefetchQuery({
+        queryKey: [
+          "coworkingSpaces",
+          "cityWise",
+          effectiveStateForCityView,
+          selectedCityForDetailView,
+          targetPage,
+          cityPageSize,
+          verificationFilter,
+          debouncedCitySearchTerm,
+        ],
+        queryFn: () =>
+          coworkingSpaceService.getCityWiseOverview(
+            effectiveStateForCityView,
+            selectedCityForDetailView,
+            targetPage,
+            cityPageSize,
+            debouncedCitySearchTerm || undefined,
+            verificationFilter,
+          ),
+        staleTime: 2 * 60 * 1000,
+      });
+    });
+  }, [
+    cityPage,
+    cityPageSize,
+    cityWiseData?.totalPages,
+    coworkingCityWiseData?.totalPages,
+    currentView,
+    debouncedCitySearchTerm,
+    effectiveStateForCityView,
+    queryClient,
+    segment,
+    selectedCityForDetailView,
+    verificationFilter,
+  ]);
+
 
   if (isLoading && currentView === "states") {
     return <LoadingSpinner message="Loading overview data..." size="lg" />;
@@ -1059,6 +1275,11 @@ export default function MockTechParkDashboard() {
             onPageChange: setCityPage,
           }}
           isSubmitting={addTechParkMutation.isPending || addCoworkingSpaceMutation.isPending}
+          isSearchLoading={
+            segment === "techParks"
+              ? isCityFetching && !isCityLoading
+              : isCoworkingCityFetching && !isCoworkingCityLoading
+          }
         />
       )}
 

@@ -9,6 +9,7 @@ import { warmupRateLimitStore, closeRateLimitStore } from "./middleware/security
 import { parseBooleanEnv } from "./utils/envUtils"; // I'll check if this exists or move it
 import { startNewsScheduler } from "./libs/newsScheduler";
 import { ensureRbacBootstrap } from "./modules/rbac/accessControlService";
+import { startTechParkCompanySyncScheduler } from "./libs/techParkCompanySync";
 
 const configuredPort = Number.parseInt(process.env.PORT || "8080", 10);
 const PORT = Number.isFinite(configuredPort) ? configuredPort : 8080;
@@ -103,6 +104,18 @@ server.listen(PORT, () => {
         } catch (error: unknown) {
             logOperationalEvent(
                 "news.scheduler.failed_to_start",
+                {
+                    error: error instanceof Error ? error.message : String(error),
+                },
+                "error",
+            );
+        }
+
+        try {
+            startTechParkCompanySyncScheduler();
+        } catch (error: unknown) {
+            logOperationalEvent(
+                "techpark.company_sync.failed_to_start",
                 {
                     error: error instanceof Error ? error.message : String(error),
                 },

@@ -137,6 +137,7 @@ export default function CoworkingSpaceDetailsPage() {
   const [stats, setStats] = useState<CompanyStats>({ totalCompanies: 0, contactedCompanies: 0, positiveResponses: 0, responseRate: 0 });
   const [statusBreakdown, setStatusBreakdown] = useState<{ NOT_CONTACTED: number; CONTACTED: number; INTERESTED: number; MEETING_SCHEDULED: number; PROPOSAL_SENT: number; IN_PROGRESS: number; CLOSED: number }>({ NOT_CONTACTED: 0, CONTACTED: 0, INTERESTED: 0, MEETING_SCHEDULED: 0, PROPOSAL_SENT: 0, IN_PROGRESS: 0, CLOSED: 0 });
   const [loading, setLoading] = useState<boolean>(false);
+  const [companiesLoading, setCompaniesLoading] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [page, setPage] = useState(1);
@@ -200,27 +201,52 @@ export default function CoworkingSpaceDetailsPage() {
   useEffect(() => {
     if (!id) return;
     const triggerRefresh = () => setRefreshTick((v) => v + 1);
-    const intervalId = window.setInterval(triggerRefresh, 30 * 1000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        triggerRefresh();
+      }
+    };
     window.addEventListener("focus", triggerRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      window.clearInterval(intervalId);
       window.removeEventListener("focus", triggerRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [id]);
 
   useEffect(() => {
-    const load = async () => {
+    const loadCoworkingSpace = async () => {
       if (!id) return;
       setLoading(true);
       try {
-        const [csResp, companiesResp] = await Promise.all([
-          coworkingSpaceService.getCoworkingSpaceById(id),
-          coworkingSpaceService.getCompaniesByCoworkingSpace(id, page, pageSize, searchTerm || undefined)
-        ]);
+        const csResp = await coworkingSpaceService.getCoworkingSpaceById(id);
 
         if ((csResp as CoworkingSpaceResponse).success) {
           setCoworkingSpace(csResp.data);
         }
+      } catch (error: unknown) {
+        console.error('Failed to load coworking space:', error);
+        const errorMsg = getApiErrorMessage(error, 'Failed to load coworking space');
+        toast.error(errorMsg);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCoworkingSpace();
+  }, [id, refreshTick]);
+
+  useEffect(() => {
+    const loadCompanies = async () => {
+      if (!id) return;
+      setCompaniesLoading(true);
+      try {
+        const companiesResp = await coworkingSpaceService.getCompaniesByCoworkingSpace(
+          id,
+          page,
+          pageSize,
+          searchTerm || undefined,
+        );
 
         const data = (companiesResp as CompanyListResponse)?.data || {};
         setCompanies(Array.isArray(data.items) ? data.items : []);
@@ -238,14 +264,15 @@ export default function CoworkingSpaceDetailsPage() {
         }
         if (data.pagination) setPagination(data.pagination);
       } catch (error: unknown) {
-        console.error('Failed to load data:', error);
-        const errorMsg = getApiErrorMessage(error, 'Failed to load data');
+        console.error('Failed to load companies:', error);
+        const errorMsg = getApiErrorMessage(error, 'Failed to load companies');
         toast.error(errorMsg);
       } finally {
-        setLoading(false);
+        setCompaniesLoading(false);
       }
     };
-    load();
+
+    loadCompanies();
   }, [id, page, pageSize, searchTerm, refreshTick]);
 
   const chartAnalytics = useMemo(() => {
@@ -538,10 +565,19 @@ export default function CoworkingSpaceDetailsPage() {
 
           {(coworkingSpace.exterior_media_url || (coworkingSpace.exterior_media_urls && coworkingSpace.exterior_media_urls.length > 0)) && (
             <div className="w-full h-48 sm:h-64 md:h-80 relative bg-slate-100 border-b overflow-hidden">
+              <div
+                className="absolute inset-0 bg-center bg-cover blur-xl scale-110 opacity-35"
+                style={{
+                  backgroundImage: `url("${coworkingSpace.exterior_media_url || coworkingSpace.exterior_media_urls?.[0] || ""}")`,
+                }}
+              />
               <img
                 src={coworkingSpace.exterior_media_url || coworkingSpace.exterior_media_urls?.[0]}
                 alt={coworkingSpace.name}
-                className="w-full h-full object-cover"
+                className="relative z-10 w-full h-full object-contain"
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
@@ -636,7 +672,13 @@ export default function CoworkingSpaceDetailsPage() {
                       rel="noreferrer"
                       className="block w-52 h-32 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden border border-slate-200 hover:shadow-sm transition-shadow"
                     >
-                      <img src={url} alt={`Exterior ${index + 1}`} className="w-full h-full object-cover" />
+                      <img
+                        src={url}
+                        alt={`Exterior ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     </a>
                   ))}
                 </div>
@@ -667,7 +709,7 @@ export default function CoworkingSpaceDetailsPage() {
 
       <Card>
         <CardContent>
-          <ChartContainer data={chartAnalytics} isLoading={loading} />
+          <ChartContainer data={chartAnalytics} isLoading={companiesLoading} />
         </CardContent>
       </Card>
 
@@ -721,6 +763,7 @@ export default function CoworkingSpaceDetailsPage() {
           canEdit={canManageCoworkingData}
           canChangeStatus={canManageCoworkingData}
           canDelete={canDeleteCoworkingData}
+          isLoading={companiesLoading}
         />
         <Pagination
           currentPage={pagination.currentPage}

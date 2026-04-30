@@ -13,10 +13,11 @@ import { RoleBasedRedirect } from "@/components/auth/RoleBasedRedirect";
 import { StateBasedRedirect } from "@/components/auth/StateBasedRedirect";
 import { CityBasedRedirect } from "@/components/auth/CityBasedRedirect";
 import { RequirePermission } from "@/components/auth/RoleGuard";
+import { preloadMockTechParkDashboard } from "@/lib/dashboard-preload";
 
 import LandingPage from "@/pages/LandingPage";
 
-const MockTechParkDashboard = lazy(() => import("@/mock-demo/MockTechParkDashboard"));
+const MockTechParkDashboard = lazy(preloadMockTechParkDashboard);
 const TechParkDetailsPage = lazy(() => import("@/pages/dashboard/TechParkDetailsPage"));
 const CoworkingSpaceDetailsPage = lazy(
   () => import("@/pages/dashboard/CoworkingSpaceDetailsPage"),
