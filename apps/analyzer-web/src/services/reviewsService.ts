@@ -6,6 +6,7 @@ export interface PlaceReview {
   date: string;
   text: string;
   is_local_guide: boolean;
+  profile_photo_url?: string | null;
 }
 
 export interface PlaceReviewsData {
@@ -34,17 +35,18 @@ export interface ParkingComplaintsResponse {
 }
 
 export const reviewsService = {
-  async getPlaceReviews(name: string, location: string): Promise<PlaceReviewsResponse> {
+  async getPlaceReviews(name: string, location: string, mapUrl?: string | null): Promise<PlaceReviewsResponse> {
     const response = await axiosInstance.get<PlaceReviewsResponse>("/places-reviews", {
-      params: { name, location },
+      params: { name, location, ...(mapUrl ? { mapUrl } : {}) },
     });
     return response.data;
   },
 
-  async getParkingComplaints(name: string, location: string): Promise<ParkingComplaintsResponse> {
+  async getParkingComplaints(name: string, location: string, mapUrl?: string | null): Promise<ParkingComplaintsResponse> {
     const response = await axiosInstance.get<ParkingComplaintsResponse>("/places-reviews/parking-complaints", {
-      params: { name, location },
+      params: { name, location, ...(mapUrl ? { mapUrl } : {}) },
     });
     return response.data;
   },
 };
+

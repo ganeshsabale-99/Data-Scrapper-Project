@@ -1,37 +1,69 @@
 import { Request, Response } from "express";
 import axios from "axios";
 
-interface SerpApiLocalResult {
-  title?: string;
+// ── Outscraper API interfaces ──────────────────────────────────────────────────
+
+interface OutscraperReview {
+  author_title?: string;
+  author_image?: string;
+  review_rating?: number;
+  review_datetime_utc?: string;
+  review_text?: string;
+  reviews_id?: string;
+}
+
+interface OutscraperPlace {
+  name?: string;
   rating?: number;
   reviews?: number;
+  reviews_data?: OutscraperReview[];
+}
+
+interface OutscraperResponse {
+  status?: string;
+  data?: OutscraperPlace[][];
+}
+
+// ── Google Places fallback interfaces ─────────────────────────────────────────
+
+interface GoogleTextSearchResult {
   place_id?: string;
-  data_id?: string;            // SerpAPI internal hex ID (alternative to place_id)
-}
-
-interface SerpApiReviewResult {
-  user?: {
-    name?: string;
-    local_guide?: boolean;
-  };
+  name?: string;
   rating?: number;
-  date?: string;
-  snippet?: string;
+  user_ratings_total?: number;
+  formatted_address?: string;
 }
 
-interface SerpApiSearchResponse {
-  error?: string;
-  local_results?: SerpApiLocalResult[];
-  place_results?: SerpApiLocalResult;   // single place result
+interface GoogleFindPlaceResponse {
+  status: string;
+  error_message?: string;
+  candidates?: GoogleTextSearchResult[];
 }
 
-interface SerpApiReviewsResponse {
-  error?: string;
-  reviews?: SerpApiReviewResult[];
-  serpapi_pagination?: { next_page_token?: string };
+interface GoogleTextSearchResponse {
+  status: string;
+  error_message?: string;
+  results?: GoogleTextSearchResult[];
 }
 
-// ── Parking keyword list ──────────────────────────────────────────────────────
+interface GooglePlaceDetailsResponse {
+  status: string;
+  error_message?: string;
+  result?: {
+    name?: string;
+    rating?: number;
+    user_ratings_total?: number;
+    reviews?: {
+      author_name?: string;
+      rating?: number;
+      relative_time_description?: string;
+      text?: string;
+      profile_photo_url?: string;
+    }[];
+  };
+}
+
+// ── Parking keywords ──────────────────────────────────────────────────────────
 const PARKING_KEYWORDS = [
   "parking", "car park", "vehicle", "bike", "motorcycle",
   "two wheeler", "four wheeler", "valet", "no parking",
@@ -40,149 +72,238 @@ const PARKING_KEYWORDS = [
 const isAboutParking = (text: string): boolean =>
   PARKING_KEYWORDS.some((kw) => text.toLowerCase().includes(kw));
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// ── Outscraper helpers ────────────────────────────────────────────────────────
 
 /**
- * Resolve place details (place_id / data_id) from a free-text query.
- * SerpAPI google_maps engine: https://serpapi.com/google-maps-api
+ * Fetch reviews via Outscraper Google Maps Reviews API.
+ * Docs: https://outscraper.com/google-maps-reviews-api/
+ *
+ * Free tier: 25 requests/month — https://outscraper.com/pricing/
+ * Sign up at: https://outscraper.com → Dashboard → API Key
  */
-async function resolvePlaceId(
+async function fetchReviewsViaOutscraper(
   apiKey: string,
-  query: string
-): Promise<{ placeId: string | null; topPlace: SerpApiLocalResult | null }> {
-  const resp = await axios.get<SerpApiSearchResponse>(
-    "https://serpapi.com/search.json",
+  query: string,
+  limit: number = 20
+): Promise<{ place: OutscraperPlace | null; reviews: OutscraperReview[] }> {
+  console.log(`[Outscraper] Fetching reviews for: "${query}", limit: ${limit}`);
+
+  const resp = await axios.get<OutscraperResponse>(
+    "https://api.app.outscraper.com/maps/reviews-v3",
     {
       params: {
-        engine: "google_maps",
-        q: query,
-        type: "search",
-        api_key: apiKey,
-        hl: "en",
-        gl: "in",            // country = India
+        query,
+        limit,          // number of reviews to fetch
+        language: "en",
+        async: false,   // wait for result (synchronous)
+        sort: "newest", // newest reviews first
       },
-      timeout: 12000,
+      headers: {
+        "X-API-KEY": apiKey,
+      },
+      timeout: 30000,   // Outscraper can be slow on first call
     }
   );
 
-  // SerpAPI returns error in response body with HTTP 200
-  if (resp.data?.error) {
-    console.error("[SerpAPI] google_maps error:", resp.data.error);
-    throw new Error(`SerpAPI: ${resp.data.error}`);
+  const place = resp.data?.data?.[0]?.[0] ?? null;
+  if (!place) {
+    console.warn("[Outscraper] No place data returned");
+    return { place: null, reviews: [] };
   }
 
-  const results = resp.data?.local_results ?? [];
-  console.log(`[SerpAPI] google_maps results count: ${results.length} for query: "${query}"`);
+  const reviews = place.reviews_data ?? [];
+  console.log(`[Outscraper] Got ${reviews.length} reviews for "${place.name}"`);
+  return { place, reviews };
+}
 
-  if (results.length === 0) return { placeId: null, topPlace: null };
+const mapOutscraperReview = (r: OutscraperReview) => ({
+  author: r.author_title ?? "Anonymous",
+  rating: r.review_rating ?? 0,
+  date: r.review_datetime_utc
+    ? new Date(r.review_datetime_utc).toLocaleDateString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+    : "",
+  text: r.review_text ?? "",
+  is_local_guide: false,
+  profile_photo_url: r.author_image ?? null,
+});
 
-  const top = results[0] ?? null;
-  if (!top) return { placeId: null, topPlace: null };
+// ── Google Places helpers (fallback) ─────────────────────────────────────────
 
-  // Prefer data_id (hex format) over place_id (ChIJ format) — either works for reviews
-  const placeId = top.data_id ?? top.place_id ?? null;
-  console.log(`[SerpAPI] Place found: "${top.title}", placeId: ${placeId}`);
+async function findPlaceIdViaGoogle(
+  apiKey: string,
+  query: string
+): Promise<{ placeId: string | null; topResult: GoogleTextSearchResult | null }> {
+  // Try Find Place first
+  try {
+    const fpResp = await axios.get<GoogleFindPlaceResponse>(
+      "https://maps.googleapis.com/maps/api/place/findplacefromtext/json",
+      {
+        params: {
+          input: query,
+          inputtype: "textquery",
+          fields: "place_id,name,rating,user_ratings_total",
+          key: apiKey,
+          language: "en",
+        },
+        timeout: 10000,
+      }
+    );
+    if (fpResp.data?.status === "OK" && (fpResp.data?.candidates?.length ?? 0) > 0) {
+      const top = fpResp.data.candidates![0]!;
+      return { placeId: top.place_id ?? null, topResult: top };
+    }
+  } catch { /* fall through */ }
 
-  return { placeId, topPlace: top };
+  // Fallback: Text Search
+  const tsResp = await axios.get<GoogleTextSearchResponse>(
+    "https://maps.googleapis.com/maps/api/place/textsearch/json",
+    {
+      params: { query, key: apiKey, region: "in", language: "en", type: "establishment" },
+      timeout: 10000,
+    }
+  );
+  const results = tsResp.data?.results ?? [];
+  if (results.length === 0) return { placeId: null, topResult: null };
+  const top = results[0]!;
+  return { placeId: top.place_id ?? null, topResult: top };
 }
 
 /**
- * Fetch pages of reviews sorted by sortBy code.
- * SerpAPI sort_by codes: "1"=relevant, "2"=newest, "3"=highest, "4"=lowest
+ * Fetch place details twice — with "newest" and "most_relevant" sort orders —
+ * then merge and deduplicate. This gives up to 10 unique reviews using the
+ * same free Google API key (Google returns 5 per call).
  */
-async function fetchReviews(
-  apiKey: string,
-  placeId: string,
-  maxPages: number,
-  sortBy: string = "1"
-): Promise<SerpApiReviewResult[]> {
-  const all: SerpApiReviewResult[] = [];
-  let nextPageToken: string | undefined;
-
-  for (let p = 0; p < maxPages; p++) {
-    const params: Record<string, string> = {
-      engine: "google_maps_reviews",
-      place_id: placeId,
-      api_key: apiKey,
-      hl: "en",
-      sort_by: sortBy,
-    };
-    if (nextPageToken) params.next_page_token = nextPageToken;
-
-    const resp = await axios.get<SerpApiReviewsResponse>(
-      "https://serpapi.com/search.json",
-      { params, timeout: 15000 }
+async function fetchGooglePlaceDetails(apiKey: string, placeId: string) {
+  const fetchWithSort = async (sort: "newest" | "most_relevant") => {
+    const resp = await axios.get<GooglePlaceDetailsResponse>(
+      "https://maps.googleapis.com/maps/api/place/details/json",
+      {
+        params: {
+          place_id: placeId,
+          fields: "name,rating,user_ratings_total,reviews",
+          key: apiKey,
+          language: "en",
+          reviews_sort: sort,
+        },
+        timeout: 10000,
+      }
     );
+    return resp.data?.result ?? null;
+  };
 
-    if (resp.data?.error) {
-      console.error("[SerpAPI] google_maps_reviews error:", resp.data.error);
-      throw new Error(`SerpAPI reviews: ${resp.data.error}`);
-    }
+  // Call both sort orders in parallel
+  const [newestResult, relevantResult] = await Promise.all([
+    fetchWithSort("newest"),
+    fetchWithSort("most_relevant"),
+  ]);
 
-    const batch = resp.data?.reviews ?? [];
-    console.log(`[SerpAPI] Reviews page ${p + 1}: ${batch.length} reviews`);
-    all.push(...batch);
+  // Use the first result for place metadata
+  const baseResult = newestResult ?? relevantResult;
+  if (!baseResult) return null;
 
-    nextPageToken = resp.data?.serpapi_pagination?.next_page_token;
-    if (!nextPageToken || batch.length === 0) break;
-  }
+  // Merge reviews from both calls and deduplicate by author + text fingerprint
+  const allReviews = [
+    ...(newestResult?.reviews ?? []),
+    ...(relevantResult?.reviews ?? []),
+  ];
 
-  return all;
+  const seen = new Set<string>();
+  const uniqueReviews = allReviews.filter((r) => {
+    const key = `${r.author_name ?? ""}|${(r.text ?? "").slice(0, 50)}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  console.log(
+    `[GooglePlaces] Merged ${newestResult?.reviews?.length ?? 0} newest + ${relevantResult?.reviews?.length ?? 0} relevant = ${uniqueReviews.length} unique reviews`
+  );
+
+  return {
+    ...baseResult,
+    reviews: uniqueReviews,
+  };
 }
 
-const mapReview = (r: SerpApiReviewResult) => ({
-  author: r.user?.name ?? "Anonymous",
-  rating: r.rating ?? 0,
-  date: r.date ?? "",
-  text: r.snippet ?? "",
-  is_local_guide: r.user?.local_guide ?? false,
-});
 
 // ── Controllers ───────────────────────────────────────────────────────────────
 
-/** GET /places-reviews?name=&location= */
+/** GET /places-reviews?name=&location=&mapUrl= */
 export const getPlaceReviews = async (req: Request, res: Response): Promise<void> => {
-  const { name, location } = req.query as { name?: string; location?: string };
+  const { name, location, mapUrl } = req.query as {
+    name?: string;
+    location?: string;
+    mapUrl?: string;
+  };
 
   if (!name || !location) {
     res.status(400).json({ success: false, message: "Query params 'name' and 'location' are required." });
     return;
   }
 
-  const apiKey = process.env.SERP_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ success: false, message: "SerpAPI key is not configured." });
-    return;
-  }
+  const outscraperKey = process.env.OUTSCRAPER_API_KEY;
+  const googleKey = process.env.GOOGLE_API_KEY;
+
+  // Build query — use mapUrl if available (most accurate for Outscraper)
+  const query = mapUrl ? mapUrl : `${name.trim()} ${location.trim()}`;
 
   try {
-    const query = `${name.trim()} ${location.trim()}`;
-    const { placeId, topPlace } = await resolvePlaceId(apiKey, query);
+    // ── Primary: Outscraper ──────────────────────────────────────────────────
+    if (outscraperKey) {
+      const { place, reviews } = await fetchReviewsViaOutscraper(outscraperKey, query, 20);
 
-    if (!topPlace) {
-      console.warn(`[PlacesReview] No place found for query: "${query}"`);
-      res.json({ success: true, data: { rating: null, total_ratings: 0, reviews: [] } });
+      res.json({
+        success: true,
+        data: {
+          name: place?.name ?? name,
+          rating: place?.rating ?? null,
+          total_ratings: place?.reviews ?? 0,
+          reviews: reviews.map(mapOutscraperReview),
+        },
+      });
       return;
     }
 
-    let reviews: SerpApiReviewResult[] = [];
-    if (placeId) {
-      try {
-        reviews = await fetchReviews(apiKey, placeId, 1, "2"); // newest first
-      } catch (e) {
-        console.error("[PlacesReview] fetchReviews failed:", e instanceof Error ? e.message : e);
-        reviews = [];
+    // ── Fallback: Google Places ──────────────────────────────────────────────
+    if (googleKey) {
+      console.log("[PlacesReview] OUTSCRAPER_API_KEY not set, falling back to Google Places");
+      const searchQuery = `${name.trim()} ${location.trim()}`;
+      const { placeId, topResult } = await findPlaceIdViaGoogle(googleKey, searchQuery);
+
+      if (!placeId || !topResult) {
+        res.json({ success: true, data: { rating: null, total_ratings: 0, reviews: [] } });
+        return;
       }
+
+      const details = await fetchGooglePlaceDetails(googleKey, placeId);
+      const reviews = (details?.reviews ?? []).map((r) => ({
+        author: r.author_name ?? "Anonymous",
+        rating: r.rating ?? 0,
+        date: r.relative_time_description ?? "",
+        text: r.text ?? "",
+        is_local_guide: false,
+        profile_photo_url: r.profile_photo_url ?? null,
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          name: details?.name ?? topResult.name,
+          rating: details?.rating ?? topResult.rating ?? null,
+          total_ratings: details?.user_ratings_total ?? topResult.user_ratings_total ?? 0,
+          reviews,
+        },
+      });
+      return;
     }
 
-    res.json({
-      success: true,
-      data: {
-        name: topPlace.title,
-        rating: topPlace.rating ?? null,
-        total_ratings: topPlace.reviews ?? 0,
-        reviews: reviews.slice(0, 10).map(mapReview),
-      },
+    res.status(500).json({
+      success: false,
+      message: "No review API configured. Set OUTSCRAPER_API_KEY or GOOGLE_API_KEY in .env",
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
@@ -191,46 +312,61 @@ export const getPlaceReviews = async (req: Request, res: Response): Promise<void
   }
 };
 
-/**
- * GET /places-reviews/parking-complaints?name=&location=
- * Returns low-rated (≤ 2 stars) reviews mentioning parking keywords.
- */
+/** GET /places-reviews/parking-complaints?name=&location=&mapUrl= */
 export const getParkingComplaints = async (req: Request, res: Response): Promise<void> => {
-  const { name, location } = req.query as { name?: string; location?: string };
+  const { name, location, mapUrl } = req.query as {
+    name?: string;
+    location?: string;
+    mapUrl?: string;
+  };
 
   if (!name || !location) {
     res.status(400).json({ success: false, message: "Query params 'name' and 'location' are required." });
     return;
   }
 
-  const apiKey = process.env.SERP_API_KEY;
-  if (!apiKey) {
-    res.status(500).json({ success: false, message: "SerpAPI key is not configured." });
-    return;
-  }
+  const outscraperKey = process.env.OUTSCRAPER_API_KEY;
+  const googleKey = process.env.GOOGLE_API_KEY;
+  const query = mapUrl ? mapUrl : `${name.trim()} ${location.trim()}`;
 
   try {
-    const query = `${name.trim()} ${location.trim()}`;
-    const { placeId, topPlace } = await resolvePlaceId(apiKey, query);
+    let allReviews: ReturnType<typeof mapOutscraperReview>[] = [];
+    let placeName = name;
+    let overallRating: number | null = null;
 
-    if (!topPlace || !placeId) {
-      console.warn(`[ParkingComplaints] No place found for query: "${query}"`);
-      res.json({ success: true, data: { place: null, complaints: [], total_reviews_scanned: 0 } });
-      return;
+    // ── Primary: Outscraper ──────────────────────────────────────────────────
+    if (outscraperKey) {
+      const { place, reviews } = await fetchReviewsViaOutscraper(outscraperKey, query, 30);
+      allReviews = reviews.map(mapOutscraperReview);
+      placeName = place?.name ?? name;
+      overallRating = place?.rating ?? null;
+    }
+    // ── Fallback: Google Places ──────────────────────────────────────────────
+    else if (googleKey) {
+      const searchQuery = `${name.trim()} ${location.trim()}`;
+      const { placeId, topResult } = await findPlaceIdViaGoogle(googleKey, searchQuery);
+      if (placeId) {
+        const details = await fetchGooglePlaceDetails(googleKey, placeId);
+        allReviews = (details?.reviews ?? []).map((r) => ({
+          author: r.author_name ?? "Anonymous",
+          rating: r.rating ?? 0,
+          date: r.relative_time_description ?? "",
+          text: r.text ?? "",
+          is_local_guide: false,
+          profile_photo_url: r.profile_photo_url ?? null,
+        }));
+        placeName = details?.name ?? topResult?.name ?? name;
+        overallRating = details?.rating ?? topResult?.rating ?? null;
+      }
     }
 
-    // Fetch up to 2 pages sorted by lowest rating
-    const allReviews = await fetchReviews(apiKey, placeId, 2, "4"); // lowest rating first
-
-    const complaints = allReviews
-      .filter((r) => (r.rating ?? 5) <= 2 && isAboutParking(r.snippet ?? ""))
-      .map(mapReview);
+    const complaints = allReviews.filter((r) => isAboutParking(r.text));
 
     res.json({
       success: true,
       data: {
-        place: topPlace.title,
-        overall_rating: topPlace.rating ?? null,
+        place: placeName,
+        overall_rating: overallRating,
         total_reviews_scanned: allReviews.length,
         complaints,
       },
