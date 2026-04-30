@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,8 @@ import {
   User,
   Phone,
   Mail,
-  Building2
+  Building2,
+  Sparkles
 } from 'lucide-react';
 import CompanyDetailsDialog from './CompanyDetailsDialog';
 import ContactEditDialog from './ContactEditDialog';
@@ -112,6 +114,7 @@ const formatDate = (dateString: string | undefined): string => {
 };
 
 export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loading }: FundingNewsTableProps) {
+  const navigate = useNavigate();
   const [sortField, setSortField] = useState<SortField>('date_published');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [editingItem, setEditingItem] = useState<FundingNews | null>(null);
@@ -403,6 +406,29 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
+                                  onClick={() => navigate(`/dashboard/article-summary/${item.id}`, {
+                                    state: {
+                                      title: item.title,
+                                      articleUrl: item.article_url,
+                                      source: item.source,
+                                      author: item.author,
+                                      datePublished: item.date_published,
+                                    }
+                                  })}
+                                >
+                                  <Sparkles className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <span>AI Summarize</span>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="h-7 w-7 p-0 text-muted-foreground hover:text-purple-600 hover:bg-purple-50"
                                   onClick={() => setViewDetailsItem(item)}
                                 >
@@ -501,6 +527,29 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
                       </div>
                     </div>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-amber-600 hover:bg-amber-50"
+                            onClick={() => navigate(`/dashboard/article-summary/${item.id}`, {
+                              state: {
+                                title: item.title,
+                                articleUrl: item.article_url,
+                                source: item.source,
+                                author: item.author,
+                                datePublished: item.date_published,
+                              }
+                            })}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <span>AI Summarize</span>
+                        </TooltipContent>
+                      </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button

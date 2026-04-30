@@ -32,6 +32,7 @@ const CoworkingCompanyDetailsPage = lazy(() =>
   })),
 );
 const FundingNewsPage = lazy(() => import("@/pages/dashboard/FundingNewsPage"));
+const ArticleSummaryPage = lazy(() => import("@/pages/dashboard/ArticleSummaryPage"));
 const ExternalApiPage = lazy(() => import("@/pages/dashboard/ExternalApiPage"));
 const UsersPage = lazy(() => import("@/pages/dashboard/UsersPage"));
 const CoworkingSpacesPage = lazy(() => import("@/pages/dashboard/CoworkingSpacesPage"));
@@ -216,6 +217,16 @@ export const Routes = [
           <RequirePermission permission="fundingNews" fallbackPath="/dashboard">
             <LazyRoute>
               <FundingNewsPage />
+            </LazyRoute>
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "article-summary/:id",
+        element: (
+          <RequirePermission permission="fundingNews" fallbackPath="/dashboard">
+            <LazyRoute>
+              <ArticleSummaryPage />
             </LazyRoute>
           </RequirePermission>
         ),
