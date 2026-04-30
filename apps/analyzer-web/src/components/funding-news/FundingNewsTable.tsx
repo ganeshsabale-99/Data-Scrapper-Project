@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,9 +16,8 @@ import {
   User,
   Phone,
   Mail,
-  Building2
+  Eye
 } from 'lucide-react';
-import CompanyDetailsDialog from './CompanyDetailsDialog';
 import ContactEditDialog from './ContactEditDialog';
 
 import {
@@ -112,10 +112,10 @@ const formatDate = (dateString: string | undefined): string => {
 };
 
 export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loading }: FundingNewsTableProps) {
+  const navigate = useNavigate();
   const [sortField, setSortField] = useState<SortField>('date_published');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [editingItem, setEditingItem] = useState<FundingNews | null>(null);
-  const [viewDetailsItem, setViewDetailsItem] = useState<FundingNews | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Filter news based on search term
@@ -404,9 +404,9 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 w-7 p-0 text-muted-foreground hover:text-purple-600 hover:bg-purple-50"
-                                  onClick={() => setViewDetailsItem(item)}
+                                  onClick={() => navigate(`/dashboard/funding-news/${item.id}/details`)}
                                 >
-                                  <Building2 className="h-4 w-4" />
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent side="top">
@@ -507,9 +507,9 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0 text-muted-foreground hover:text-purple-600 hover:bg-purple-50"
-                            onClick={() => setViewDetailsItem(item)}
+                            onClick={() => navigate(`/dashboard/funding-news/${item.id}/details`)}
                           >
-                            <Building2 className="h-4 w-4" />
+                            <Eye className="h-4 w-4" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent side="top">
@@ -628,16 +628,6 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
         />
       )}
 
-      {/* Company Details Dialog */}
-      {viewDetailsItem && (
-        <CompanyDetailsDialog
-          isOpen={!!viewDetailsItem}
-          onClose={() => setViewDetailsItem(null)}
-          newsId={viewDetailsItem.id}
-          articleUrl={viewDetailsItem.article_url}
-          articleTitle={viewDetailsItem.title}
-        />
-      )}
     </TooltipProvider>
   );
 }
