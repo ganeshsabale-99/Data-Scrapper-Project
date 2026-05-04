@@ -15,7 +15,9 @@ import {
     Eye,
     Building2,
     FileText,
-    Sparkles
+    Sparkles,
+    MapPin,
+    Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +35,59 @@ export default function FundingNewsDetailsPage() {
     const [error, setError] = useState<string | null>(null);
     const [isSummarizing, setIsSummarizing] = useState(false);
     const [summary, setSummary] = useState<string | null>(null);
+    const [presence, setPresence] = useState<{
+        location: string | null;
+        type: string | null;
+        branches: string | null;
+    }>({ location: null, type: null, branches: null });
+    const [presenceLoading, setPresenceLoading] = useState(false);
+
+    const extractLocation = (text: string | undefined): string | null => {
+        if (!text) return null;
+        
+        const keywords = [
+            'based in', 
+            'based out of', 
+            'headquartered in', 
+            'located in', 
+            'operates from', 
+            'founded in', 
+            'startup in'
+        ];
+
+        // List of common non-location words that might be capitalized
+        const blacklist = [
+            'Fintech', 'SaaS', 'Edtech', 'Healthtech', 'Insurtech', 'Logitech',
+            'Technology', 'Software', 'Services', 'Solutions', 'Platforms',
+            'AI', 'Artificial Intelligence', 'Machine Learning', 'Blockchain',
+            'B2B', 'B2C', 'Direct', 'Series', 'Funding', 'Seed'
+        ];
+
+        for (const kw of keywords) {
+            // Regex to capture capitalized place names (e.g., "San Francisco", "India", "New York, USA")
+            // It looks for one or more capitalized words, potentially separated by commas or spaces.
+            const regex = new RegExp(`${kw}\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*(?:,\\s+[A-Z][a-z]+)*)`, 'g');
+            const matches = [...text.matchAll(regex)];
+
+            for (const match of matches) {
+                if (match && match[1]) {
+                    const loc = match[1].trim();
+                    
+                    // Validation: 
+                    // 1. More than 2 chars
+                    // 2. Not in blacklist
+                    // 3. Not a generic stop word
+                    const isBlacklisted = blacklist.some(b => loc.toLowerCase().includes(b.toLowerCase()));
+                    const isStopWord = ['a', 'the', 'some', 'many'].includes(loc.toLowerCase());
+
+                    if (loc.length > 2 && !isBlacklisted && !isStopWord) {
+                        return loc;
+                    }
+                }
+            }
+        }
+        return null;
+    };
 
     const fetchData = useCallback(async () => {
         if (!newsId) return;
@@ -45,12 +100,38 @@ export default function FundingNewsDetailsPage() {
                 FundingNewsService.getCompanyDetails(newsId)
             ]);
             
-            setNews(newsResponse.data);
-            setDetails(detailsResponse.data);
+            const newsData = newsResponse.data;
+            const detailsData = detailsResponse.data;
+            
+            setNews(newsData);
+            setDetails(detailsData);
+
+            // Presence Extraction
+            setPresenceLoading(true);
+            const contentToSearch = [
+                newsData.full_content,
+                newsData.content_summary,
+                detailsData.description
+            ].filter(Boolean).join(' ');
+
+            let loc = extractLocation(contentToSearch);
+            
+            // Detect Presence Type
+            let type = null;
+            if (contentToSearch.toLowerCase().includes('coworking')) type = 'Coworking Space';
+            else if (contentToSearch.toLowerCase().includes('tech park')) type = 'Tech Park';
+            else if (contentToSearch.toLowerCase().includes('workspace')) type = 'Shared Workspace';
+            
+            setPresence({ 
+                location: loc, 
+                type: type,
+                branches: null
+            });
         } catch (err: any) {
             setError(err.response?.data?.error || err.message || 'Failed to fetch details');
         } finally {
             setLoading(false);
+            setPresenceLoading(false);
         }
     }, [newsId]);
 
@@ -315,6 +396,60 @@ export default function FundingNewsDetailsPage() {
                             </div>
                         </div>
                     )}
+
+                    {/* Company Presence Card */}
+                    <div className="space-y-4">
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                            <MapPin className="h-4 w-4" />
+                            Company Presence
+                        </h3>
+                        <div className="p-5 rounded-2xl border border-border bg-background shadow-sm space-y-4">
+                            {presenceLoading ? (
+                                <div className="flex items-center gap-3 py-2">
+                                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                                    <span className="text-sm text-muted-foreground italic">Checking location...</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="space-y-4">
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">Headquarters</span>
+                                            <p className={`text-sm font-semibold ${presence.location ? 'text-foreground' : 'text-muted-foreground italic'}`}>
+                                                {presence.location || 'Not mentioned in source'}
+                                            </p>
+                                        </div>
+                                        
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">Presence Type</span>
+                                            <p className={`text-sm font-medium ${presence.type ? 'text-foreground' : 'text-muted-foreground italic'}`}>
+                                                {presence.type || 'Standalone / Not specified'}
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">Branches</span>
+                                            <p className="text-sm font-medium text-muted-foreground italic">
+                                                Not available
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="w-full gap-2 text-xs font-medium h-9 border-slate-200 hover:bg-slate-50 transition-colors mt-2"
+                                        onClick={() => {
+                                            const query = presence.location || details?.companyName || news?.company_name || 'Company';
+                                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, '_blank');
+                                        }}
+                                    >
+                                        <Globe className="h-3.5 w-3.5" />
+                                        View on Map
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
