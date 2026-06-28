@@ -9,6 +9,8 @@ import { rbacService, type AccessDepartment } from "@/services/rbacService";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { UserManagementNav } from "@/components/users/UserManagementNav";
+
 
 type ApiErrorShape = {
     response?: {
@@ -132,6 +134,7 @@ export default function DepartmentsPage() {
 
     return (
         <div className="container mx-auto p-6 space-y-6">
+            <UserManagementNav />
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-slate-900">Departments</h1>

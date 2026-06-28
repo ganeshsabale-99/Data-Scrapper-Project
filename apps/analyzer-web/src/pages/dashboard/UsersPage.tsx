@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -17,6 +18,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { AlertTriangle } from "lucide-react";
 import { EditUserDialog } from "@/components/users/EditUserDialog";
 import { ViewUserDialog } from "@/components/users/ViewUserDialog";
+import { UserManagementNav } from "@/components/users/UserManagementNav";
 
 
 //
@@ -69,6 +71,8 @@ const getDisplayPhone = (value?: string | null) => {
 
 export default function UsersPage() {
   useRoleAccess();
+  const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [users, setUsers] = useState<AdminUserDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -176,6 +180,8 @@ export default function UsersPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
+      <UserManagementNav />
+      {/* Header */}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

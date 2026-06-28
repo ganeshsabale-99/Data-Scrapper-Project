@@ -6,12 +6,16 @@ interface DashboardControlsProps {
   segment: Segment;
   onSegmentChange: (segment: Segment) => void;
   isLoading: boolean;
+  selectedState: string;
+  onStateChange: (state: string) => void;
 }
 
 export function DashboardControls({
   segment,
   onSegmentChange,
   isLoading,
+  selectedState,
+  onStateChange,
 }: DashboardControlsProps) {
   return (
     <div className="space-y-3">
@@ -21,7 +25,10 @@ export function DashboardControls({
           onSegmentChange={onSegmentChange}
           isLoading={isLoading}
         />
-        <FilterControls />
+        <FilterControls 
+          selectedState={selectedState}
+          onStateChange={onStateChange}
+        />
       </div>
     </div>
   );
