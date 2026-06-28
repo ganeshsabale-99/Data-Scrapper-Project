@@ -130,4 +130,28 @@ export class FundingNewsService {
     const response = await axiosInstance.patch(`/funding-news/contact/${id}`, contactData);
     return response.data;
   }
-} 
+
+  // Get company details (scraped from article page)
+  static async getCompanyDetails(id: string): Promise<CompanyDetailsResponse> {
+    const response = await axiosInstance.get(`/funding-news/company-details/${id}`);
+    return response.data;
+  }
+}
+
+export interface CompanyDetails {
+  companyName: string;
+  website?: string;
+  socialLinks: {
+    linkedin?: string;
+    twitter?: string;
+    facebook?: string;
+    instagram?: string;
+    crunchbase?: string;
+  };
+  otherLinks: string[];
+  description?: string;
+}
+
+export interface CompanyDetailsResponse {
+  data: CompanyDetails;
+}

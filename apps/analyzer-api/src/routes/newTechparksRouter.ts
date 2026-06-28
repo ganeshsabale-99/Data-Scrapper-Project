@@ -22,7 +22,10 @@ import {
   editTechPark,
   getTechParkById,
   getCompaniesByTechPark,
+  discoverCompaniesForTechPark,
+  enrichCompaniesForTechParkById,
   addCompanyToTechPark,
+  enrichTechParkWebsiteById,
   getCompanyById,
   updateCompany,
   deleteCompany,
@@ -140,6 +143,12 @@ newTechparksRouter.post(
   canVerifyTechParks,
   rejectTechParkDetails,
 );
+newTechparksRouter.post(
+  "/:id/enrich-website-details",
+  authenticateToken,
+  canManageTechParks,
+  enrichTechParkWebsiteById,
+);
 newTechparksRouter.patch(
   "/:id",
   authenticateToken,
@@ -157,6 +166,18 @@ newTechparksRouter.get(
   authenticateToken,
   canViewTechParks,
   getCompaniesByTechPark,
+);
+newTechparksRouter.post(
+  "/:techParkId/companies/discover",
+  authenticateToken,
+  canManageTechParks,
+  discoverCompaniesForTechPark,
+);
+newTechparksRouter.post(
+  "/:techParkId/companies/enrich-details",
+  authenticateToken,
+  canManageTechParks,
+  enrichCompaniesForTechParkById,
 );
 newTechparksRouter.post(
   "/:techParkId/companies",

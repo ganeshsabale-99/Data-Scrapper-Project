@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { calculateStatusAnalytics } from "../utils/analyticsUtils";
 import { getQueryString } from "../utils/queryUtils";
 import { INDIA_STATES_AND_UTS } from "../utils/indiaStates";
+import { normalizeCity, getCityAliasMap } from "../utils/cityNormalization";
 import { matchEnumValue } from "../utils/enumSearch";
 import { getPostgresEnumValues } from "../utils/dbEnums";
 import {
@@ -162,6 +163,7 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
                 ? Number(((positiveResponses / contactedCoworkingSpaces) * 100).toFixed(2))
                 : 0;
 
+        const aliasMap = await getCityAliasMap();
         const normalizeKey = (s: string) => s.trim().toLowerCase();
         const cityMap = new Map<string, { city: string; count: number }>();
         cityGroups.forEach((group) => {

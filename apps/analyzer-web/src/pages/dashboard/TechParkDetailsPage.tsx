@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SearchInput } from "@/components/ui/search-input";
-import { Building2, Users } from "lucide-react";
+import { Building2, Users, RefreshCcw, ArrowLeft } from "lucide-react";
 import { AddCompanyDialog } from "@/components/add-company-dialog/AddCompanyDialog";
 import { ChartContainer } from "@/components/charts/chart-containers";
 import { Pagination } from "@/components/pagination/Pagination";
@@ -23,6 +23,8 @@ import { ActivityTimeline } from "@/components/tech-parks/ActivityTimeline";
 import { AddVisitModal } from "@/components/tech-parks/AddVisitModal";
 import { AddContactLogModal } from "@/components/tech-parks/AddContactLogModal";
 import type { LucideIcon } from "lucide-react";
+import { PlacesReviews } from "@/components/places-reviews/PlacesReviews";
+import { ParkingComplaintsReviews } from "@/components/places-reviews/ParkingComplaintsReviews";
 
 type ApiErrorShape = {
   response?: {
@@ -208,8 +210,10 @@ export default function TechParkDetailsPage() {
   const [stats, setStats] = useState<TechParkStats>({ totalCompanies: 0, contactedCompanies: 0, positiveResponses: 0, responseRate: 0 });
   const [statusBreakdown, setStatusBreakdown] = useState<{ NOT_CONTACTED: number; CONTACTED: number; INTERESTED: number; MEETING_SCHEDULED: number; PROPOSAL_SENT: number; IN_PROGRESS: number; CLOSED: number }>({ NOT_CONTACTED: 0, CONTACTED: 0, INTERESTED: 0, MEETING_SCHEDULED: 0, PROPOSAL_SENT: 0, IN_PROGRESS: 0, CLOSED: 0 });
   const [loading, setLoading] = useState<boolean>(false);
+  const [companiesLoading, setCompaniesLoading] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDiscoveringCompanies, setIsDiscoveringCompanies] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [pagination, setPagination] = useState<{
@@ -278,8 +282,34 @@ export default function TechParkDetailsPage() {
   const [isEditTechParkDialogOpen, setIsEditTechParkDialogOpen] = useState(false);
   const [isUpdatingTechPark, setIsUpdatingTechPark] = useState(false);
   const [techParkFormData, setTechParkFormData] = useState<TechParkRecord | null>(null);
+  const [heroImageSrc, setHeroImageSrc] = useState<string>("");
   const canManageTechParkData = isAdmin || isSalesManager;
   const canDeleteTechParkData = isAdmin;
+
+  const applyCompanyListResponse = (response: CompanyListResponse | undefined) => {
+    const data = response?.data || {};
+    setCompanies(Array.isArray(data.items) ? data.items : []);
+    if (data.stats) setStats(data.stats);
+    if (data.statusBreakdown) {
+      setStatusBreakdown({
+        NOT_CONTACTED: data.statusBreakdown.NOT_CONTACTED || 0,
+        CONTACTED: data.statusBreakdown.CONTACTED || 0,
+        INTERESTED: data.statusBreakdown.INTERESTED || 0,
+        MEETING_SCHEDULED: data.statusBreakdown.MEETING_SCHEDULED || 0,
+        PROPOSAL_SENT: data.statusBreakdown.PROPOSAL_SENT || 0,
+        IN_PROGRESS: data.statusBreakdown.IN_PROGRESS || 0,
+        CLOSED: data.statusBreakdown.CLOSED || 0,
+      });
+    }
+    if (data.pagination) setPagination(data.pagination);
+  };
+
+  const reloadCompanies = async (search = searchTerm || undefined) => {
+    if (!id) return;
+    const response = await techParkService.getCompaniesByTechPark(id, page, pageSize, search);
+    applyCompanyListResponse(response as CompanyListResponse);
+  };
+
   const reviewStatusLabel = useMemo(() => {
     if (!techPark) return "PENDING";
     const explicit = String(techPark.verificationLifecycleStatus || "")
@@ -300,52 +330,71 @@ export default function TechParkDetailsPage() {
   useEffect(() => {
     if (!id) return;
     const triggerRefresh = () => setRefreshTick((v) => v + 1);
-    const intervalId = window.setInterval(triggerRefresh, 30 * 1000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        triggerRefresh();
+      }
+    };
     window.addEventListener("focus", triggerRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      window.clearInterval(intervalId);
       window.removeEventListener("focus", triggerRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [id]);
 
   useEffect(() => {
-    const load = async () => {
+    const primaryImage =
+      techPark?.photo_url ||
+      (Array.isArray(techPark?.exterior_media_urls) ? techPark.exterior_media_urls[0] : "") ||
+      "";
+    setHeroImageSrc(primaryImage);
+  }, [techPark]);
+
+  useEffect(() => {
+    const loadTechPark = async () => {
       if (!id) return;
       setLoading(true);
       try {
-        const [tpResp, companiesResp] = await Promise.all([
-          techParkService.getTechParkById(id),
-          techParkService.getCompaniesByTechPark(id, page, pageSize, searchTerm || undefined)
-        ]);
+        const tpResp = await techParkService.getTechParkById(id);
 
         if ((tpResp as TechParkResponse).success) {
           setTechPark(tpResp.data);
         }
-
-        const data = (companiesResp as CompanyListResponse)?.data || {};
-        setCompanies(Array.isArray(data.items) ? data.items : []);
-        if (data.stats) setStats(data.stats);
-        if (data.statusBreakdown) {
-          setStatusBreakdown({
-            NOT_CONTACTED: data.statusBreakdown.NOT_CONTACTED || 0,
-            CONTACTED: data.statusBreakdown.CONTACTED || 0,
-            INTERESTED: data.statusBreakdown.INTERESTED || 0,
-            MEETING_SCHEDULED: data.statusBreakdown.MEETING_SCHEDULED || 0,
-            PROPOSAL_SENT: data.statusBreakdown.PROPOSAL_SENT || 0,
-            IN_PROGRESS: data.statusBreakdown.IN_PROGRESS || 0,
-            CLOSED: data.statusBreakdown.CLOSED || 0,
-          });
-        }
-        if (data.pagination) setPagination(data.pagination);
       } catch (error: unknown) {
-        console.error('Failed to load data:', error);
-        const errorMsg = getApiErrorMessage(error, 'Failed to load data');
+        console.error('Failed to load tech park:', error);
+        const errorMsg = getApiErrorMessage(error, 'Failed to load tech park');
         toast.error(errorMsg);
       } finally {
         setLoading(false);
       }
     };
-    load();
+
+    loadTechPark();
+  }, [id, refreshTick]);
+
+  useEffect(() => {
+    const loadCompanies = async () => {
+      if (!id) return;
+      setCompaniesLoading(true);
+      try {
+        const companiesResp = await techParkService.getCompaniesByTechPark(
+          id,
+          page,
+          pageSize,
+          searchTerm || undefined,
+        );
+        applyCompanyListResponse(companiesResp as CompanyListResponse);
+      } catch (error: unknown) {
+        console.error('Failed to load companies:', error);
+        const errorMsg = getApiErrorMessage(error, 'Failed to load companies');
+        toast.error(errorMsg);
+      } finally {
+        setCompaniesLoading(false);
+      }
+    };
+
+    loadCompanies();
   }, [id, page, pageSize, searchTerm, refreshTick]);
 
   // Note: calculateStats function removed as we now use server-side stats
@@ -399,12 +448,7 @@ export default function TechParkDetailsPage() {
       const resp = await techParkService.addCompanyToTechPark(id, addPayload);
       const created = resp?.data;
       if (created) {
-        // Reload the current page to get updated data from server
-        const reloadResp = await techParkService.getCompaniesByTechPark(id, page, pageSize);
-        const data = reloadResp?.data || {};
-        setCompanies(Array.isArray(data.items) ? data.items : []);
-        if (data.stats) setStats(data.stats);
-        if (data.pagination) setPagination(data.pagination);
+        await reloadCompanies();
         queryClient.invalidateQueries({ queryKey: techParkKeys.all });
         toast.success('Company added successfully!');
       }
@@ -421,6 +465,32 @@ export default function TechParkDetailsPage() {
 
   const handleViewDetails = (company: TechParkCompanyRecord) => {
     navigate(`/dashboard/company/${company.id}`);
+  };
+
+  const handleBack = () => {
+    navigate(-1);
+  };
+
+  const handleDiscoverCompanies = async () => {
+    if (!id || isDiscoveringCompanies) return;
+
+    try {
+      setIsDiscoveringCompanies(true);
+      const response = await techParkService.discoverCompaniesByTechPark(id);
+      const summary = response?.data;
+
+      await reloadCompanies(searchTerm || undefined);
+      queryClient.invalidateQueries({ queryKey: techParkKeys.all });
+
+      toast.success(
+        `Fetched companies: ${summary?.created || 0} added, ${summary?.updated || 0} updated.`,
+      );
+    } catch (error: unknown) {
+      const errorMsg = getApiErrorMessage(error, "Failed to fetch companies for this tech park");
+      toast.error(errorMsg);
+    } finally {
+      setIsDiscoveringCompanies(false);
+    }
   };
 
   const handleEdit = (company: TechParkCompanyRecord) => {
@@ -500,12 +570,7 @@ export default function TechParkDetailsPage() {
       await techParkService.updateCompany(editingCompany.id, payload);
       setIsEditDialogOpen(false);
 
-      // Reload the current page to get updated data from server
-      const reloadResp = await techParkService.getCompaniesByTechPark(id!, page, pageSize);
-      const data = reloadResp?.data || {};
-      setCompanies(Array.isArray(data.items) ? data.items : []);
-      if (data.stats) setStats(data.stats);
-      if (data.pagination) setPagination(data.pagination);
+      await reloadCompanies();
       queryClient.invalidateQueries({ queryKey: techParkKeys.all });
 
       toast.success('Company updated successfully!');
@@ -521,12 +586,7 @@ export default function TechParkDetailsPage() {
     try {
       await techParkService.changeCompanyStatus(company.id, status);
 
-      // Reload the current page to get updated data from server
-      const reloadResp = await techParkService.getCompaniesByTechPark(id!, page, pageSize);
-      const data = reloadResp?.data || {};
-      setCompanies(Array.isArray(data.items) ? data.items : []);
-      if (data.stats) setStats(data.stats);
-      if (data.pagination) setPagination(data.pagination);
+      await reloadCompanies();
       queryClient.invalidateQueries({ queryKey: techParkKeys.all });
 
       toast.success(`Status changed to ${status}`);
@@ -548,12 +608,7 @@ export default function TechParkDetailsPage() {
       setIsDeleting(true);
       await techParkService.deleteCompany(deletingCompany.id);
 
-      // Reload the current page to get updated data from server
-      const reloadResp = await techParkService.getCompaniesByTechPark(id!, page, pageSize);
-      const data = reloadResp?.data || {};
-      setCompanies(Array.isArray(data.items) ? data.items : []);
-      if (data.stats) setStats(data.stats);
-      if (data.pagination) setPagination(data.pagination);
+      await reloadCompanies();
       queryClient.invalidateQueries({ queryKey: techParkKeys.all });
 
       toast.success('Company deleted successfully!');
@@ -645,6 +700,13 @@ export default function TechParkDetailsPage() {
 
   return (
     <div className="p-4 space-y-6">
+      <div>
+        <Button variant="outline" onClick={handleBack} className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
       {/* Tech Park Details Section */}
       {techPark && (
         <Card className="overflow-hidden border-slate-200/70 shadow-sm">
@@ -684,13 +746,25 @@ export default function TechParkDetailsPage() {
             </CardHeader>
           </div>
 
-          {(techPark.photo_url || (techPark.exterior_media_urls && techPark.exterior_media_urls.length > 0)) && (
+          {heroImageSrc && (
             <div className="w-full h-48 sm:h-64 md:h-80 relative bg-slate-100 border-b overflow-hidden">
+              <div
+                className="absolute inset-0 bg-center bg-cover blur-xl scale-110 opacity-35"
+                style={{ backgroundImage: `url("${heroImageSrc}")` }}
+              />
               <img
-                src={techPark.photo_url || techPark.exterior_media_urls?.[0]}
+                src={heroImageSrc}
                 alt={techPark.name}
-                className="w-full h-full object-cover"
+                className="relative z-10 w-full h-full object-contain"
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
                 onError={(e) => {
+                  const fallback = techPark.exterior_media_urls?.find((url) => url && url !== heroImageSrc) || "";
+                  if (fallback) {
+                    setHeroImageSrc(fallback);
+                    return;
+                  }
                   (e.target as HTMLImageElement).style.display = 'none';
                 }}
               />
@@ -798,7 +872,13 @@ export default function TechParkDetailsPage() {
                       rel="noreferrer"
                       className="block w-52 h-32 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden border border-slate-200 hover:shadow-sm transition-shadow"
                     >
-                      <img src={url} alt={`Exterior ${index + 1}`} className="w-full h-full object-cover" />
+                      <img
+                        src={url}
+                        alt={`Exterior ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     </a>
                   ))}
                 </div>
@@ -806,6 +886,28 @@ export default function TechParkDetailsPage() {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Google Reviews Section */}
+      {techPark && (
+        <PlacesReviews
+          name={techPark.name || ""}
+          location={[techPark.city, techPark.state].filter(Boolean).join(", ")}
+          rating={techPark.rating}
+          totalRatings={techPark.total_ratings}
+          mapUrl={techPark.map_url}
+        />
+      )}
+
+      {/* Parking Complaints Section */}
+      {techPark && (
+        <ParkingComplaintsReviews
+          name={techPark.name || ""}
+          location={[techPark.city, techPark.state].filter(Boolean).join(", ")}
+          rating={techPark.rating}
+          totalRatings={techPark.total_ratings}
+          mapUrl={techPark.map_url}
+        />
       )}
 
       {/* Tabs Layout */}
@@ -852,7 +954,7 @@ export default function TechParkDetailsPage() {
 
           <Card>
             <CardContent>
-              <ChartContainer data={chartAnalytics} isLoading={loading} />
+              <ChartContainer data={chartAnalytics} isLoading={companiesLoading} />
             </CardContent>
           </Card>
 
@@ -861,9 +963,20 @@ export default function TechParkDetailsPage() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-xl font-semibold">Companies</h2>
               {canManageTechParkData ? (
-                <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
-                  Add Company
-                </Button>
+                <div className="flex w-full sm:w-auto gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleDiscoverCompanies}
+                    disabled={isDiscoveringCompanies}
+                    className="w-full sm:w-auto"
+                  >
+                    <RefreshCcw className={`h-4 w-4 mr-2 ${isDiscoveringCompanies ? "animate-spin" : ""}`} />
+                    {isDiscoveringCompanies ? "Fetching..." : "Fetch Companies"}
+                  </Button>
+                  <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
+                    Add Company
+                  </Button>
+                </div>
               ) : null}
             </div>
 
@@ -906,6 +1019,7 @@ export default function TechParkDetailsPage() {
               canEdit={canManageTechParkData}
               canChangeStatus={canManageTechParkData}
               canDelete={canDeleteTechParkData}
+              isLoading={companiesLoading}
             />
             <Pagination
               currentPage={pagination.currentPage}

@@ -1,6 +1,10 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData, type QueryKey } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { techParkService, type VerifiedFilter } from "@/services/techParkService";
 import { toast } from "sonner";
+
+type QueryBehaviorOptions = {
+  enabled?: boolean;
+};
 
 // Query Keys
 export const techParkKeys = {
@@ -31,26 +35,27 @@ const readApiErrorMessage = (error: unknown, fallback: string): string => {
 };
 
 // Hooks for fetching data
-export const useOverviewData = () => {
+export const useOverviewData = (options?: QueryBehaviorOptions) => {
   return useQuery({
     queryKey: techParkKeys.overview(),
     queryFn: () => techParkService.getOverviewData(),
-    staleTime: 30 * 1000, // 30 seconds
+    enabled: options?.enabled ?? true,
+    staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: true,
-    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 };
 
-export const useStateWiseData = (state: string) => {
+export const useStateWiseData = (state: string, options?: QueryBehaviorOptions) => {
   return useQuery({
     queryKey: techParkKeys.stateWise(state),
     queryFn: () => techParkService.getStateWiseOverview(state),
-    enabled: !!state,
-    staleTime: 30 * 1000, // 30 seconds
+    enabled: (options?.enabled ?? true) && !!state,
+    staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: true,
-    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 };
 
@@ -61,16 +66,16 @@ export const useCityWiseData = (
   pageSize: number = 10,
   search: string = "",
   verified: VerifiedFilter = "ALL",
+  options?: QueryBehaviorOptions,
 ) => {
   return useQuery({
     queryKey: techParkKeys.cityWise(state, city, page, pageSize, search, verified),
     queryFn: () => techParkService.getCityWiseOverview(state, city, page, pageSize, search || undefined, verified),
-    enabled: !!state && !!city,
-    staleTime: 30 * 1000, // 30 seconds
+    enabled: (options?.enabled ?? true) && !!state && !!city,
+    staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: true,
-    refetchInterval: 60 * 1000,
-    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 };
 

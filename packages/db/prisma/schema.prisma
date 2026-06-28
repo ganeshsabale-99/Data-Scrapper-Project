@@ -1,11 +1,13 @@
 generator client {
   provider      = "prisma-client-js"
+  engineType    = "library"
   binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model AdminUser {
@@ -573,4 +575,16 @@ enum ActivityEntityType {
   COMPANY
   COWORKING
   CONTACT
+}
+
+model CityAlias {
+  id            String   @id @default(cuid())
+  alias         String   @unique
+  canonicalCity String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([canonicalCity])
+  @@index([isActive])
 }

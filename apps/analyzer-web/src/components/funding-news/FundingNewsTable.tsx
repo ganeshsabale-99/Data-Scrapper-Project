@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,8 @@ import {
   Edit,
   User,
   Phone,
-  Mail
+  Mail,
+  Eye
 } from 'lucide-react';
 import ContactEditDialog from './ContactEditDialog';
 
@@ -110,6 +112,7 @@ const formatDate = (dateString: string | undefined): string => {
 };
 
 export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loading }: FundingNewsTableProps) {
+  const navigate = useNavigate();
   const [sortField, setSortField] = useState<SortField>('date_published');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [editingItem, setEditingItem] = useState<FundingNews | null>(null);
@@ -400,6 +403,21 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
                                 <Button
                                   variant="ghost"
                                   size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-purple-600 hover:bg-purple-50"
+                                  onClick={() => navigate(`/dashboard/funding-news/${item.id}/details`)}
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <span>View company details</span>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="h-7 w-7 p-0 text-muted-foreground hover:text-blue-600 hover:bg-blue-50"
                                   onClick={() => window.open(item.article_url, '_blank')}
                                 >
@@ -483,6 +501,21 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
                       </div>
                     </div>
                     <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-purple-600 hover:bg-purple-50"
+                            onClick={() => navigate(`/dashboard/funding-news/${item.id}/details`)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <span>View company details</span>
+                        </TooltipContent>
+                      </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button
@@ -594,6 +627,7 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
           }}
         />
       )}
+
     </TooltipProvider>
   );
 }

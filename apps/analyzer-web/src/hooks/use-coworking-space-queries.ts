@@ -2,6 +2,10 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tansta
 import { coworkingSpaceService } from "@/services/coworkingSpaceService";
 import { toast } from "sonner";
 
+type QueryBehaviorOptions = {
+  enabled?: boolean;
+};
+
 // Query Keys
 export const coworkingSpaceKeys = {
   all: ['coworkingSpaces'] as const,
@@ -27,25 +31,26 @@ const readApiErrorMessage = (error: unknown, fallback: string): string => {
 };
 
 // Hooks for fetching data
-export const useCoworkingSpaceOverviewData = () =>
+export const useCoworkingSpaceOverviewData = (options?: QueryBehaviorOptions) =>
   useQuery({
     queryKey: coworkingSpaceKeys.overview(),
     queryFn: () => coworkingSpaceService.getOverviewData(),
-    staleTime: 30 * 1000, // 30 seconds
+    enabled: options?.enabled ?? true,
+    staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: true,
-    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 
-export const useCoworkingSpaceStateWiseData = (state: string) => {
+export const useCoworkingSpaceStateWiseData = (state: string, options?: QueryBehaviorOptions) => {
   return useQuery({
     queryKey: coworkingSpaceKeys.stateWise(state),
     queryFn: () => coworkingSpaceService.getStateWiseOverview(state),
-    enabled: !!state,
-    staleTime: 30 * 1000, // 30 seconds
+    enabled: (options?.enabled ?? true) && !!state,
+    staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: true,
-    refetchInterval: 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 };
 
@@ -55,17 +60,17 @@ export const useCoworkingSpaceCityWiseData = (
   page: number = 1,
   pageSize: number = 10,
   search?: string,
-  verified: 'ALL' | 'VERIFIED' | 'UNVERIFIED' = 'ALL'
+  verified: 'ALL' | 'VERIFIED' | 'UNVERIFIED' = 'ALL',
+  options?: QueryBehaviorOptions,
 ) => {
   return useQuery({
     queryKey: [...coworkingSpaceKeys.cityWise(state, city, page, pageSize, verified), search],
     queryFn: () => coworkingSpaceService.getCityWiseOverview(state, city, page, pageSize, search, verified),
-    enabled: !!state && !!city,
-    staleTime: 30 * 1000, // 30 seconds
+    enabled: (options?.enabled ?? true) && !!state && !!city,
+    staleTime: 2 * 60 * 1000,
     gcTime: 10 * 60 * 1000, // 10 minutes
-    refetchOnWindowFocus: true,
-    refetchInterval: 60 * 1000,
-    placeholderData: keepPreviousData,
+    refetchOnWindowFocus: false,
+    refetchInterval: false,
   });
 };
 

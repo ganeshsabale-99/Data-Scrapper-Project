@@ -13,10 +13,11 @@ import { RoleBasedRedirect } from "@/components/auth/RoleBasedRedirect";
 import { StateBasedRedirect } from "@/components/auth/StateBasedRedirect";
 import { CityBasedRedirect } from "@/components/auth/CityBasedRedirect";
 import { RequirePermission } from "@/components/auth/RoleGuard";
+import { preloadMockTechParkDashboard } from "@/lib/dashboard-preload";
 
 import LandingPage from "@/pages/LandingPage";
 
-const MockTechParkDashboard = lazy(() => import("@/mock-demo/MockTechParkDashboard"));
+const MockTechParkDashboard = lazy(preloadMockTechParkDashboard);
 const TechParkDetailsPage = lazy(() => import("@/pages/dashboard/TechParkDetailsPage"));
 const CoworkingSpaceDetailsPage = lazy(
   () => import("@/pages/dashboard/CoworkingSpaceDetailsPage"),
@@ -32,6 +33,7 @@ const CoworkingCompanyDetailsPage = lazy(() =>
   })),
 );
 const FundingNewsPage = lazy(() => import("@/pages/dashboard/FundingNewsPage"));
+const FundingNewsDetailsPage = lazy(() => import("@/pages/dashboard/FundingNewsDetailsPage"));
 const ExternalApiPage = lazy(() => import("@/pages/dashboard/ExternalApiPage"));
 const UsersPage = lazy(() => import("@/pages/dashboard/UsersPage"));
 const CoworkingSpacesPage = lazy(() => import("@/pages/dashboard/CoworkingSpacesPage"));
@@ -216,6 +218,16 @@ export const Routes = [
           <RequirePermission permission="fundingNews" fallbackPath="/dashboard">
             <LazyRoute>
               <FundingNewsPage />
+            </LazyRoute>
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "funding-news/:newsId/details",
+        element: (
+          <RequirePermission permission="fundingNews" fallbackPath="/dashboard">
+            <LazyRoute>
+              <FundingNewsDetailsPage />
             </LazyRoute>
           </RequirePermission>
         ),

@@ -7,6 +7,7 @@ import { SplashScreen } from "./components/ui/splash-screen";
 import { AppRuntimeErrorBoundary } from "./components/AppRuntimeErrorBoundary";
 import { GupioOverlayLoader } from "./components/ui/gupio-loader";
 import { useGlobalApiLoader } from "./hooks/use-global-api-loader";
+import { preloadMockTechParkDashboard } from "./lib/dashboard-preload";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,15 +26,17 @@ export function App() {
   const [isLoading, setIsLoading] = useState(true);
   const { isLoading: isApiLoading } = useGlobalApiLoader();
   const parsedSplashDelay = Number.parseInt(
-    import.meta.env.VITE_SPLASH_DELAY_MS ?? "300",
+    import.meta.env.VITE_SPLASH_DELAY_MS ?? "120",
     10,
   );
   const splashDelayMs =
     Number.isFinite(parsedSplashDelay) && parsedSplashDelay >= 0
       ? parsedSplashDelay
-      : 300;
+      : 120;
 
   useEffect(() => {
+    void preloadMockTechParkDashboard();
+
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, splashDelayMs);
