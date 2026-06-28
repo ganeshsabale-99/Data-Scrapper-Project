@@ -7,6 +7,7 @@ import { Pagination } from "@/components/pagination/Pagination";
 import { LoadingSpinner } from "./LoadingSpinner";
 import { Card, CardContent } from "@/components/ui/card";
 import { ErrorDisplay } from "./ErrorDisplay";
+import { ArrowLeft } from "lucide-react";
 import type { DashboardStats, ChartDistribution, Segment, NewLocationData } from "./types";
 import type { VerifiedFilter } from "@/services/techParkService";
 import { useRoleAccess } from "@/hooks/use-role-access";
@@ -20,6 +21,7 @@ interface CityDetailsViewProps {
   isLoading: boolean;
   cityName: string;
   stateName?: string;
+  onBack: () => void;
   isAddDialogOpen: boolean;
   onAddDialogOpenChange: (open: boolean) => void;
   newLocation: NewLocationData;
@@ -67,6 +69,7 @@ export function CityDetailsView({
   isLoading,
   cityName,
   stateName,
+  onBack,
   isAddDialogOpen,
   onAddDialogOpenChange,
   newLocation,
@@ -115,6 +118,12 @@ export function CityDetailsView({
   if (isLoading) {
     return (
       <div className="space-y-6">
+        <div>
+          <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        </div>
         <StatsRow stats={cityStats} segment={segment} isLoading={isLoading} />
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-base font-medium">
@@ -130,6 +139,12 @@ export function CityDetailsView({
   if (error) {
     return (
       <div className="space-y-6">
+        <div>
+          <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        </div>
         <StatsRow stats={cityStats} segment={segment} isLoading={isLoading} />
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-base font-medium">
@@ -145,6 +160,12 @@ export function CityDetailsView({
   if ((!locationRows || locationRows.length === 0) && !isLoading) {
     return (
       <div className="space-y-6">
+        <div>
+          <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        </div>
         <StatsRow stats={cityStats} segment={segment} isLoading={isLoading} />
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-base font-medium">
@@ -217,6 +238,13 @@ export function CityDetailsView({
 
   return (
     <>
+      <div>
+        <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
       <StatsRow stats={cityStats} segment={segment} />
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">

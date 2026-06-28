@@ -5,6 +5,7 @@ import { CitiesTable } from "./CitiesTable";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { ArrowLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,7 @@ interface StateDetailsViewProps {
   isLoading: boolean;
   stateName: string;
   onCityClick: (city: string) => void;
+  onBack: () => void;
 }
 
 export function StateDetailsView({
@@ -48,6 +50,7 @@ export function StateDetailsView({
   isLoading,
   stateName,
   onCityClick,
+  onBack,
 }: StateDetailsViewProps) {
   const [isCityDialogOpen, setIsCityDialogOpen] = useState(false);
   const [cityName, setCityName] = useState("");
@@ -96,6 +99,13 @@ export function StateDetailsView({
 
   return (
     <>
+      <div>
+        <Button variant="outline" onClick={onBack} className="flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </Button>
+      </div>
+
       <StatsRow stats={stateStats} segment={segment} isLoading={isLoading} />
       
       <div className="mb-2 flex items-center justify-between gap-3">

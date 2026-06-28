@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { getUserState, isAuthenticated } from "@/lib/token";
 import { GupioOverlayLoader } from "@/components/ui/gupio-loader";
+import { preloadMockTechParkDashboard } from "@/lib/dashboard-preload";
 
 export function StateBasedRedirect() {
   const navigate = useNavigate();
@@ -9,6 +10,7 @@ export function StateBasedRedirect() {
   useEffect(() => {
     const redirectToStatePage = () => {
       if (isAuthenticated()) {
+        void preloadMockTechParkDashboard();
         const userState = getUserState();
         if (userState) {
           const stateParam = encodeURIComponent(userState);

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { getUserCity, getUserState, isAuthenticated } from "@/lib/token";
 import { GupioOverlayLoader } from "@/components/ui/gupio-loader";
 import { CITY_TO_STATE_MAP } from "../dashboard/constants";
+import { preloadMockTechParkDashboard } from "@/lib/dashboard-preload";
 
 export function CityBasedRedirect() {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ export function CityBasedRedirect() {
   useEffect(() => {
     const redirectToCityPage = () => {
       if (isAuthenticated()) {
+        void preloadMockTechParkDashboard();
         const userCity = getUserCity();
         if (!userCity) {
           navigate("/dashboard/city", { replace: true });

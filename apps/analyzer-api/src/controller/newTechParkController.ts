@@ -19,6 +19,14 @@ import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
 import { diffObjects } from "../utils/diffUtils";
 import { createActivityLog } from "../libs/activityLogger.service";
 import { ActivityEntityType, ActivityAction } from "@repo/db";
+import { calculateDistance } from "../utils/verificationUtils";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { getRequiredEnv, getS3BucketName, getS3Client } from "../libs/s3";
+import { scrapeWebsiteImage } from "../libs/scrapeWebsiteImage";
+import { enrichCompaniesForTechPark, syncCompaniesForTechPark } from "../libs/techParkCompanySync";
+import { enrichTechParkWebsiteDetails } from "../libs/techParkWebsiteEnrichment";
+import { logOperationalEvent } from "../libs/serviceHealthLogger";
 
 const normalizePermission = (value: string) =>
   value.trim().toUpperCase().replace(/[^A-Z0-9.]+/g, "_");
@@ -183,6 +191,241 @@ const getVerificationLifecycleStatus = (
   return "PENDING";
 };
 
+const normalizeTechParkText = (value: unknown): string =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(private|limited|pvt|ltd|llp|inc|corp|corporation|technologies|technology|solutions|services)\b/g, " ")
+    .replace(/\b(phase|tower|block|building|campus)\s*[a-z0-9-]*\b/g, " ")
+    .replace(/\b(tech\s*park|it\s*park|software\s*park|business\s*park|sez)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const normalizeAddressKey = (value: unknown): string =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(road|rd|street|st|avenue|ave|lane|ln|floor|fl|near|opposite)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .slice(0, 6)
+    .join(" ");
+
+const getTokenSet = (value: unknown): Set<string> =>
+  new Set(
+    normalizeTechParkText(value)
+      .split(" ")
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 3),
+  );
+
+const getTokenOverlapScore = (left: Set<string>, right: Set<string>): number => {
+  if (!left.size || !right.size) return 0;
+  let overlap = 0;
+  left.forEach((token) => {
+    if (right.has(token)) overlap++;
+  });
+  return overlap / Math.max(left.size, right.size);
+};
+
+const getWebsiteHostKey = (value: unknown): string => {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const parsed = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    return parsed.hostname
+      .replace(/^www\d*\./i, "")
+      .replace(/^(m|mobile)\./i, "")
+      .toLowerCase();
+  } catch {
+    return raw
+      .toLowerCase()
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\d*\./i, "")
+      .replace(/^(m|mobile)\./i, "")
+      .replace(/[/?#].*$/, "");
+  }
+};
+
+const getPhoneKey = (value: unknown): string =>
+  String(value || "").replace(/[^\d]/g, "");
+
+const getTechParkCompletenessScore = (park: any): number => {
+  let score = 0;
+  if (park.isVerified) score += 100;
+  if (park.reviewStatus === "APPROVED") score += 30;
+  if (park.website) score += 5;
+  if (park.reception_phone || park.international_phone) score += 5;
+  if (park.map_url) score += 5;
+  if (typeof park.rating === "number") score += 2;
+  if (park.address_line1) score += 3;
+  if (park.locality) score += 2;
+  if (typeof park.lat === "number" && typeof park.lng === "number") score += 5;
+  return score;
+};
+
+const areLikelyDuplicateTechParks = (left: any, right: any): boolean => {
+  const leftName = normalizeTechParkText(left.name);
+  const rightName = normalizeTechParkText(right.name);
+  const sameNormalizedName = Boolean(leftName) && leftName === rightName;
+  const tokenOverlap =
+    leftName && rightName ? getTokenOverlapScore(getTokenSet(left.name), getTokenSet(right.name)) : 0;
+  const websiteMatch =
+    Boolean(getWebsiteHostKey(left.website)) &&
+    getWebsiteHostKey(left.website) === getWebsiteHostKey(right.website);
+  const phoneMatch =
+    Boolean(getPhoneKey(left.reception_phone || left.international_phone)) &&
+    getPhoneKey(left.reception_phone || left.international_phone) ===
+      getPhoneKey(right.reception_phone || right.international_phone);
+  const addressMatch =
+    Boolean(normalizeAddressKey([left.address_line1, left.locality, left.city].filter(Boolean).join(" "))) &&
+    normalizeAddressKey([left.address_line1, left.locality, left.city].filter(Boolean).join(" ")) ===
+      normalizeAddressKey([right.address_line1, right.locality, right.city].filter(Boolean).join(" "));
+
+  const distanceMatch =
+    typeof left.lat === "number" &&
+    typeof left.lng === "number" &&
+    typeof right.lat === "number" &&
+    typeof right.lng === "number" &&
+    calculateDistance(left.lat, left.lng, right.lat, right.lng) <= 0.5;
+
+  if (websiteMatch || phoneMatch) return true;
+  if (!leftName || !rightName) return false;
+  if (sameNormalizedName && (addressMatch || distanceMatch)) return true;
+  if (sameNormalizedName) return true;
+  if (tokenOverlap >= 0.8 && (addressMatch || distanceMatch)) return true;
+
+  return false;
+};
+
+const dedupeTechParks = (techParks: any[]) => {
+  const deduped: any[] = [];
+  const bucketIndexMap = new Map<string, Set<number>>();
+
+  const registerBucket = (bucketKey: string, index: number) => {
+    if (!bucketKey) return;
+    const existing = bucketIndexMap.get(bucketKey);
+    if (existing) {
+      existing.add(index);
+      return;
+    }
+    bucketIndexMap.set(bucketKey, new Set([index]));
+  };
+
+  const getBucketKeys = (park: any): string[] => {
+    const keys = new Set<string>();
+    const websiteKey = getWebsiteHostKey(park.website);
+    const phoneKey = getPhoneKey(park.reception_phone || park.international_phone);
+    const normalizedName = normalizeTechParkText(park.name);
+
+    if (websiteKey) keys.add(`website:${websiteKey}`);
+    if (phoneKey) keys.add(`phone:${phoneKey}`);
+    if (normalizedName) keys.add(`name:${normalizedName}`);
+
+    getTokenSet(park.name).forEach((token) => {
+      keys.add(`token:${token}`);
+    });
+
+    return Array.from(keys);
+  };
+
+  for (const park of techParks) {
+    const candidateIndexes = new Set<number>();
+
+    getBucketKeys(park).forEach((bucketKey) => {
+      bucketIndexMap.get(bucketKey)?.forEach((index) => {
+        candidateIndexes.add(index);
+      });
+    });
+
+    let existingIndex = -1;
+    for (const candidateIndex of candidateIndexes) {
+      if (areLikelyDuplicateTechParks(deduped[candidateIndex], park)) {
+        existingIndex = candidateIndex;
+        break;
+      }
+    }
+
+    if (existingIndex < 0) {
+      const newIndex = deduped.push(park) - 1;
+      getBucketKeys(park).forEach((bucketKey) => registerBucket(bucketKey, newIndex));
+      continue;
+    }
+
+    const existing = deduped[existingIndex];
+    if (getTechParkCompletenessScore(park) > getTechParkCompletenessScore(existing)) {
+      deduped[existingIndex] = park;
+      getBucketKeys(park).forEach((bucketKey) => registerBucket(bucketKey, existingIndex));
+    }
+  }
+
+  return deduped;
+};
+
+const getS3KeyFromStoredUrl = (value: string, bucket: string, region: string): string | null => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    const bucketHost = `${bucket}.s3.${region}.amazonaws.com`.toLowerCase();
+
+    if (host !== bucketHost) {
+      return null;
+    }
+
+    const key = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+    return key || null;
+  } catch {
+    return null;
+  }
+};
+
+const toDisplayImageUrl = async (value: string | null | undefined): Promise<string | null> => {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return null;
+
+  if (trimmed.startsWith("http")) {
+    try {
+      const bucket = getS3BucketName();
+      const region = getRequiredEnv("AWS_REGION");
+      const key = getS3KeyFromStoredUrl(trimmed, bucket, region);
+
+      if (!key) {
+        return trimmed;
+      }
+
+      const s3 = getS3Client();
+      return await getSignedUrl(
+        s3,
+        new GetObjectCommand({ Bucket: bucket, Key: key }),
+        { expiresIn: 60 * 60 * 24 * 7 },
+      );
+    } catch {
+      return trimmed;
+    }
+  }
+
+  if (process.env.GOOGLE_API_KEY) {
+    return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${trimmed}&key=${process.env.GOOGLE_API_KEY}`;
+  }
+
+  return trimmed;
+};
+
+const getScrapedWebsiteImage = async (website?: string | null, contactPageUrl?: string | null) => {
+  const fromWebsite = await scrapeWebsiteImage(website);
+  if (fromWebsite) return fromWebsite;
+  return scrapeWebsiteImage(contactPageUrl);
+};
+
 
 export const getOverviewData = async (req: Request, res: Response) => {
   try {
@@ -190,24 +433,34 @@ export const getOverviewData = async (req: Request, res: Response) => {
     const where: any = { is_active: true };
     applyScopeToStateCityWhere(where, scope);
 
-    const [totalTechParks, statusGroups, stateGroups] = await Promise.all([
-      prismaInstance.newTechPark.count({ where }),
-      prismaInstance.newTechPark.groupBy({
-        by: ["status"],
-        where,
-        _count: { _all: true },
-      }),
-      prismaInstance.newTechPark.groupBy({
-        by: ["state"],
-        where,
-        _count: { _all: true },
-      }),
-    ]);
+    const techParks = await prismaInstance.newTechPark.findMany({
+      where,
+      select: {
+        name: true,
+        website: true,
+        address_line1: true,
+        locality: true,
+        city: true,
+        state: true,
+        reception_phone: true,
+        international_phone: true,
+        status: true,
+        rating: true,
+        map_url: true,
+        isVerified: true,
+        reviewStatus: true,
+        lat: true,
+        lng: true,
+      },
+    });
+
+    const uniqueTechParks = dedupeTechParks(techParks);
+    const totalTechParks = uniqueTechParks.length;
 
     const statusCounts: Record<string, number> = {};
-    statusGroups.forEach((group) => {
-      const key = String(group.status || "NOT_CONTACTED");
-      statusCounts[key] = Number(group._count?._all ?? 0);
+    uniqueTechParks.forEach((park: any) => {
+      const key = String(park.status || "NOT_CONTACTED");
+      statusCounts[key] = (statusCounts[key] ?? 0) + 1;
     });
 
     const contactedTechParks =
@@ -228,14 +481,13 @@ export const getOverviewData = async (req: Request, res: Response) => {
     });
 
     let unknownCount = 0;
-    stateGroups.forEach((group) => {
-      const state = (group.state || "").trim();
-      const count = Number(group._count?._all ?? 0);
+    uniqueTechParks.forEach((park: any) => {
+      const state = String(park.state || "").trim();
       if (!state) {
-        unknownCount += count;
+        unknownCount += 1;
         return;
       }
-      stateMap[state] = (stateMap[state] ?? 0) + count;
+      stateMap[state] = (stateMap[state] ?? 0) + 1;
     });
 
     const stateData = [
@@ -276,6 +528,18 @@ const sendNewTechParkSafeError = (
     `newTechPark.${context}`,
     fallbackMessage,
   );
+
+const runInBackground = (taskName: string, task: () => Promise<void>) => {
+  void task().catch((error) => {
+    logOperationalEvent(
+      `newTechPark.${taskName}.background_failed`,
+      {
+        error: error instanceof Error ? error.message : String(error),
+      },
+      "warn",
+    );
+  });
+};
 
 
 
@@ -334,41 +598,52 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
       });
     }
 
-    const catalogWhere: any = {
-      state: { equals: state, mode: "insensitive" },
-      is_active: true,
-    };
-    applyScopeToStateCityWhere(catalogWhere, scope);
-    const catalogCities = await prismaInstance.cityCatalog.findMany({
-      where: catalogWhere,
-      orderBy: { city: "asc" },
-      select: { city: true },
-    });
-
     const techParkWhere: any = {
       is_active: true,
       state: { equals: state, mode: "insensitive" },
     };
     applyScopeToStateCityWhere(techParkWhere, scope);
-    const [totalTechParks, statusGroups, cityGroups] = await Promise.all([
-      prismaInstance.newTechPark.count({ where: techParkWhere }),
-      prismaInstance.newTechPark.groupBy({
-        by: ["status"],
-        where: techParkWhere,
-        _count: { _all: true },
+    const catalogWhere: any = {
+      state: { equals: state, mode: "insensitive" },
+      is_active: true,
+    };
+    applyScopeToStateCityWhere(catalogWhere, scope);
+
+    const [catalogCities, techParks] = await Promise.all([
+      prismaInstance.cityCatalog.findMany({
+        where: catalogWhere,
+        orderBy: { city: "asc" },
+        select: { city: true },
       }),
-      prismaInstance.newTechPark.groupBy({
-        by: ["city"],
+      prismaInstance.newTechPark.findMany({
         where: techParkWhere,
-        _count: { _all: true },
+        select: {
+          name: true,
+          website: true,
+          address_line1: true,
+          locality: true,
+          city: true,
+          state: true,
+          reception_phone: true,
+          international_phone: true,
+          status: true,
+          rating: true,
+          map_url: true,
+          isVerified: true,
+          reviewStatus: true,
+          lat: true,
+          lng: true,
+        },
       }),
     ]);
 
+    const uniqueTechParks = dedupeTechParks(techParks);
+    const totalTechParks = uniqueTechParks.length;
+
     const statusCounts: Record<string, number> = {};
-    statusGroups.forEach((group) => {
-      statusCounts[String(group.status || "NOT_CONTACTED")] = Number(
-        group._count?._all ?? 0,
-      );
+    uniqueTechParks.forEach((park: any) => {
+      const key = String(park.status || "NOT_CONTACTED");
+      statusCounts[key] = (statusCounts[key] ?? 0) + 1;
     });
 
     const contactedTechParks = totalTechParks - (statusCounts["NOT_CONTACTED"] ?? 0);
@@ -385,6 +660,9 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
     const aliasMap = await getCityAliasMap();
     const normalizeKey = (s: string) => s.trim().toLowerCase();
     const cityMap = new Map<string, { city: string; count: number }>();
+    uniqueTechParks.forEach((park: any) => {
+      const cityRaw = String(park.city || "").trim();
+      const city = cityRaw || "Unknown";
     cityGroups.forEach((group) => {
       const cityRaw = (group.city || "").trim();
       const count = Number(group._count?._all ?? 0);
@@ -392,9 +670,9 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
       const key = normalizeKey(city);
       const existing = cityMap.get(key);
       if (existing) {
-        existing.count += count;
+        existing.count += 1;
       } else {
-        cityMap.set(key, { city, count });
+        cityMap.set(key, { city, count: 1 });
       }
     });
 
@@ -508,27 +786,9 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
           : {}),
     };
 
-    const [totalItems, totalVerified, totalUnverified] = await Promise.all([
-      prismaInstance.newTechPark.count({ where }),
-      prismaInstance.newTechPark.count({
-        where: {
-          ...baseWhere,
-          isVerified: true,
-        },
-      }),
-      prismaInstance.newTechPark.count({
-        where: {
-          ...baseWhere,
-          isVerified: false,
-        },
-      }),
-    ]);
-
     const techParks = await prismaInstance.newTechPark.findMany({
       where,
       orderBy: { name: 'asc' },
-      skip,
-      take: pageSize,
       select: {
         id: true,
         name: true,
@@ -538,7 +798,6 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
         locality: true,
         city: true,
         state: true,
-        pincode: true,
         reception_phone: true,
         international_phone: true,
         status: true,
@@ -546,38 +805,77 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
         map_url: true,
         isVerified: true,
         reviewStatus: true,
-        verifiedByUserId: true,
-        verifiedAt: true,
-        security_agency_name: true,
-        property_manager_name: true,
-        property_manager_phone: true,
-        property_manager_email: true,
-        parking_floors: true,
-        total_floors: true,
-        basement_levels: true,
-        spoc_name: true,
-        spoc_phone: true,
-        seating_capacity: true,
-        challenges: true,
         lat: true,
         lng: true,
-        verifiedByUser: {
-          select: {
-            name: true,
-          },
-        },
       },
     });
 
+    const uniqueTechParks = dedupeTechParks(techParks);
+    const totalItems = uniqueTechParks.length;
+    const totalVerified = uniqueTechParks.filter((tp) => Boolean(tp.isVerified)).length;
+    const totalUnverified = uniqueTechParks.filter((tp) => !tp.isVerified).length;
+    const paginatedTechParkIds = uniqueTechParks
+      .slice(skip, skip + pageSize)
+      .map((techPark) => techPark.id);
+
+    const paginatedTechParks = paginatedTechParkIds.length
+      ? await prismaInstance.newTechPark.findMany({
+        where: {
+          id: { in: paginatedTechParkIds },
+        },
+        select: {
+          id: true,
+          name: true,
+          website: true,
+          address_line1: true,
+          address_line2: true,
+          locality: true,
+          city: true,
+          state: true,
+          pincode: true,
+          reception_phone: true,
+          international_phone: true,
+          status: true,
+          rating: true,
+          map_url: true,
+          isVerified: true,
+          reviewStatus: true,
+          verifiedByUserId: true,
+          verifiedAt: true,
+          security_agency_name: true,
+          property_manager_name: true,
+          property_manager_phone: true,
+          property_manager_email: true,
+          parking_floors: true,
+          total_floors: true,
+          basement_levels: true,
+          spoc_name: true,
+          spoc_phone: true,
+          seating_capacity: true,
+          challenges: true,
+          lat: true,
+          lng: true,
+          verifiedByUser: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      })
+      : [];
+
+    const paginatedTechParkMap = new Map(
+      paginatedTechParks.map((techPark) => [techPark.id, techPark]),
+    );
+    const orderedPaginatedTechParks = paginatedTechParkIds
+      .map((techParkId) => paginatedTechParkMap.get(techParkId))
+      .filter(Boolean);
+
     const totalTechParks = totalItems;
-    const statusGroups = await prismaInstance.newTechPark.groupBy({
-      by: ["status"],
-      where,
-      _count: { _all: true },
-    });
     const statusCounts: Record<string, number> = {};
-    statusGroups.forEach((g: any) => {
-      statusCounts[String(g.status)] = Number(g._count?._all ?? 0);
+    uniqueTechParks.forEach((tp: any) => {
+      const key = String(tp.status || "NOT_CONTACTED");
+      statusCounts[key] = (statusCounts[key] ?? 0) + 1;
     });
 
     const notContactedCount = statusCounts["NOT_CONTACTED"] ?? 0;
@@ -601,7 +899,7 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
       CLOSED: statusCounts["CLOSED"] ?? 0,
     };
 
-    const items = techParks.map((tp) => {
+    const items = orderedPaginatedTechParks.map((tp) => {
       const formState = getVerificationFormState(tp);
       const lifecycleStatus = getVerificationLifecycleStatus(tp);
       return {
@@ -665,6 +963,7 @@ export const addTechPark = async (
     const {
       name,
       website,
+      contact_page_url,
       address,
       reception_phone,
       status,
@@ -865,6 +1164,10 @@ export const addTechPark = async (
     if (ratingFloat !== null && (!Number.isFinite(ratingFloat) || ratingFloat < 0 || ratingFloat > 5)) {
       return res.status(400).json({ error: "Rating must be a number between 0 and 5." });
     }
+    const websiteUrl = toOptionalTrimmedStringOrNull(website);
+    const contactPageUrl = toOptionalTrimmedStringOrNull(contact_page_url);
+    const scrapedPhotoUrl = await getScrapedWebsiteImage(websiteUrl, contactPageUrl);
+
     const techPark = await prismaInstance.newTechPark.create({
       data: {
         place_id: placeId,
@@ -872,9 +1175,11 @@ export const addTechPark = async (
         address_line1: addressStr,
         city: cityStr,
         state: state ?? undefined,
-        website: toOptionalTrimmedStringOrNull(website),
+        website: websiteUrl,
         reception_phone: toOptionalTrimmedStringOrNull(reception_phone),
         map_url: toOptionalTrimmedStringOrNull(map_url),
+        photo_url: scrapedPhotoUrl,
+        contact_page_url: contactPageUrl,
         rating: ratingFloat,
         status: (status as any) ?? 'NOT_CONTACTED',
         types: [],
@@ -1540,12 +1845,20 @@ export const getCompaniesByTechPark = async (req: Request, res: Response) => {
       name: c.name,
       address: c.address,
       website: c.website ?? null,
+      operator: c.operator ?? null,
+      description: c.description ?? null,
       rating: c.rating ?? null,
       total_ratings: c.total_ratings ?? 0,
       business_status: c.business_status ?? 'NOT_CONTACTED',
       phone: c.contact_phone ?? c.contact_international_phone ?? null,
+      contact_phone: c.contact_phone ?? null,
+      contact_international_phone: c.contact_international_phone ?? null,
+      contact_email: c.contact_email ?? null,
       map_url: c.map_url ?? null,
-      opening_hours: (c.opening_hours || []).join(', '),
+      opening_hours: c.opening_hours || [],
+      locationLat: c.locationLat ?? null,
+      locationLng: c.locationLng ?? null,
+      types: c.types || [],
       city: c.city,
       serialNumber: offset + index + 1,
     }));
@@ -1638,6 +1951,195 @@ export const addCompanyToTechPark = async (req: Request, res: Response) => {
       error,
       "addCompanyToTechPark",
       "Failed to add company",
+    );
+  }
+};
+
+export const discoverCompaniesForTechPark = async (req: Request, res: Response) => {
+  try {
+    const techParkId = getQueryString(req.params.techParkId);
+    const scope = getDataScopeFromRequest(req);
+
+    if (!techParkId) {
+      return res.status(400).json({ success: false, message: "Tech park ID is required" });
+    }
+
+    const techParkWhere: any = { id: techParkId };
+    applyScopeToStateCityWhere(techParkWhere, scope);
+    const techPark = await prismaInstance.newTechPark.findFirst({ where: techParkWhere });
+
+    if (!techPark) {
+      return res.status(404).json({ success: false, message: "Tech park not found" });
+    }
+    if (!techPark.place_id) {
+      return res.status(400).json({
+        success: false,
+        message: "This tech park does not have a Google place_id, so companies cannot be discovered.",
+      });
+    }
+
+    const syncResult = await syncCompaniesForTechPark({
+      id: techPark.id,
+      place_id: techPark.place_id,
+      name: techPark.name,
+      city: techPark.city,
+      state: techPark.state,
+      locality: techPark.locality,
+      address_line1: techPark.address_line1,
+      lat: techPark.lat,
+      lng: techPark.lng,
+    });
+
+    runInBackground("discoverCompaniesForTechPark.enrichCompanies", async () => {
+      await enrichCompaniesForTechPark({
+        id: techPark.id,
+        place_id: techPark.place_id,
+        name: techPark.name,
+        city: techPark.city,
+        state: techPark.state,
+        locality: techPark.locality,
+        address_line1: techPark.address_line1,
+        lat: techPark.lat,
+        lng: techPark.lng,
+      });
+    });
+
+    const companies = await (prismaInstance as any).techParkCompany.findMany({
+      where: {
+        newTechParkId: techPark.id,
+        ...buildTechParkCompanyScopeWhere(scope),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Companies discovered successfully",
+      data: {
+        discovered: syncResult.discovered,
+        created: syncResult.created,
+        updated: syncResult.updated,
+        companies,
+      },
+    });
+  } catch (error) {
+    return sendNewTechParkSafeError(
+      res,
+      error,
+      "discoverCompaniesForTechPark",
+      "Failed to discover companies for this tech park",
+    );
+  }
+};
+
+export const enrichCompaniesForTechParkById = async (req: Request, res: Response) => {
+  try {
+    const techParkId = getQueryString(req.params.techParkId);
+    const scope = getDataScopeFromRequest(req);
+
+    if (!techParkId) {
+      return res.status(400).json({ success: false, message: "Tech park ID is required" });
+    }
+
+    const techParkWhere: any = { id: techParkId };
+    applyScopeToStateCityWhere(techParkWhere, scope);
+    const techPark = await prismaInstance.newTechPark.findFirst({
+      where: techParkWhere,
+      select: {
+        id: true,
+        place_id: true,
+        name: true,
+        city: true,
+        state: true,
+        locality: true,
+        address_line1: true,
+        lat: true,
+        lng: true,
+      },
+    });
+
+    if (!techPark) {
+      return res.status(404).json({ success: false, message: "Tech park not found" });
+    }
+
+    const result = await enrichCompaniesForTechPark({
+      id: techPark.id,
+      place_id: techPark.place_id || "",
+      name: techPark.name,
+      city: techPark.city,
+      state: techPark.state,
+      locality: techPark.locality,
+      address_line1: techPark.address_line1,
+      lat: techPark.lat,
+      lng: techPark.lng,
+    });
+
+    const companies = await (prismaInstance as any).techParkCompany.findMany({
+      where: {
+        newTechParkId: techPark.id,
+        ...buildTechParkCompanyScopeWhere(scope),
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Company details enriched successfully",
+      data: {
+        ...result,
+        companies,
+      },
+    });
+  } catch (error) {
+    return sendNewTechParkSafeError(
+      res,
+      error,
+      "enrichCompaniesForTechParkById",
+      "Failed to enrich company details for this tech park",
+    );
+  }
+};
+
+export const enrichTechParkWebsiteById = async (req: Request, res: Response) => {
+  try {
+    const id = getQueryString(req.params.id);
+    const scope = getDataScopeFromRequest(req);
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Tech park ID is required" });
+    }
+
+    const accessWhere: any = { id };
+    applyScopeToStateCityWhere(accessWhere, scope);
+    const techPark = await prismaInstance.newTechPark.findFirst({
+      where: accessWhere,
+      select: {
+        id: true,
+        place_id: true,
+        name: true,
+        city: true,
+        state: true,
+        website: true,
+        contact_page_url: true,
+      },
+    });
+
+    if (!techPark) {
+      return res.status(404).json({ success: false, message: "Tech park not found" });
+    }
+
+    const result = await enrichTechParkWebsiteDetails(techPark);
+    if (!result.success) {
+      return res.status(404).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    return sendNewTechParkSafeError(
+      res,
+      error,
+      "enrichTechParkWebsiteById",
+      "Failed to enrich tech park website details",
     );
   }
 };
@@ -2049,6 +2551,21 @@ export const editTechPark = async (
       });
     }
 
+    const nextWebsite =
+      allowedUpdate.website !== undefined ? allowedUpdate.website : existingTechPark.website;
+    const nextContactPageUrl =
+      allowedUpdate.contact_page_url !== undefined
+        ? allowedUpdate.contact_page_url
+        : existingTechPark.contact_page_url;
+
+    if ((!existingTechPark.photo_url || allowedUpdate.website !== undefined || allowedUpdate.contact_page_url !== undefined)
+      && !allowedUpdate.photo_url) {
+      const scrapedPhotoUrl = await getScrapedWebsiteImage(nextWebsite, nextContactPageUrl);
+      if (scrapedPhotoUrl) {
+        allowedUpdate.photo_url = scrapedPhotoUrl;
+      }
+    }
+
     const updatedTechPark = await prismaInstance.newTechPark.update({
       where: { id },
       data: allowedUpdate,
@@ -2136,25 +2653,70 @@ export const getTechParkById = async (
       return res.status(404).json({ error: "Tech park not found." });
     }
 
-    const formState = getVerificationFormState(techPark);
-    const lifecycleStatus = getVerificationLifecycleStatus(techPark);
+    let hydratedTechPark = techPark;
+    const hasMissingTechParkDetails = Boolean(
+      !hydratedTechPark.website ||
+      !hydratedTechPark.reception_phone ||
+      !hydratedTechPark.generic_email ||
+      !hydratedTechPark.contact_page_url ||
+      !hydratedTechPark.map_url ||
+      hydratedTechPark.rating === null ||
+      hydratedTechPark.rating === undefined ||
+      hydratedTechPark.total_ratings === null ||
+      hydratedTechPark.total_ratings === undefined ||
+      !hydratedTechPark.business_status,
+    );
 
-    let finalPhotoUrl = techPark.photo_url;
-    if (finalPhotoUrl && process.env.GOOGLE_API_KEY) {
-      if (finalPhotoUrl.startsWith("http") && finalPhotoUrl.includes("key=")) {
-        // Replace potentially stale key with active key
-        finalPhotoUrl = finalPhotoUrl.replace(/([?&]key=)([^&]+)/, `$1${process.env.GOOGLE_API_KEY}`);
-      } else if (!finalPhotoUrl.startsWith("http")) {
-        // Construct URL from reference
-        finalPhotoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference=${finalPhotoUrl}&key=${process.env.GOOGLE_API_KEY}`;
-      }
+    if (hydratedTechPark.place_id && hasMissingTechParkDetails) {
+      runInBackground("getTechParkById.enrichTechPark", async () => {
+        await enrichTechParkWebsiteDetails({
+          id: hydratedTechPark.id,
+          place_id: hydratedTechPark.place_id,
+          name: hydratedTechPark.name,
+          city: hydratedTechPark.city,
+          state: hydratedTechPark.state,
+          website: hydratedTechPark.website,
+          contact_page_url: hydratedTechPark.contact_page_url,
+        });
+      });
     }
+
+    if (!hydratedTechPark.photo_url) {
+      runInBackground("getTechParkById.scrapePhoto", async () => {
+        const scrapedPhotoUrl = await getScrapedWebsiteImage(
+          hydratedTechPark.website,
+          hydratedTechPark.contact_page_url,
+        );
+        if (scrapedPhotoUrl) {
+          await prismaInstance.newTechPark.update({
+            where: { id: hydratedTechPark.id },
+            data: { photo_url: scrapedPhotoUrl },
+          });
+        }
+      });
+    }
+
+    const formState = getVerificationFormState(hydratedTechPark);
+    const lifecycleStatus = getVerificationLifecycleStatus(hydratedTechPark);
+
+    let finalPhotoUrl = await toDisplayImageUrl(hydratedTechPark.photo_url);
+    if (finalPhotoUrl && finalPhotoUrl.startsWith("http") && finalPhotoUrl.includes("maps.googleapis.com") && finalPhotoUrl.includes("key=") && process.env.GOOGLE_API_KEY) {
+      finalPhotoUrl = finalPhotoUrl.replace(/([?&]key=)([^&]+)/, `$1${process.env.GOOGLE_API_KEY}`);
+    }
+
+    const finalExteriorMediaUrls = Array.isArray(hydratedTechPark.exterior_media_urls)
+      ? (await Promise.all(hydratedTechPark.exterior_media_urls.map((url) => toDisplayImageUrl(url)))).filter(
+          (url): url is string => Boolean(url),
+        )
+      : [];
 
     return res.status(200).json({
       success: true,
       data: {
-        ...techPark,
+        ...hydratedTechPark,
         photo_url: finalPhotoUrl,
+        exterior_media_urls: finalExteriorMediaUrls,
+        exterior_media_url: finalExteriorMediaUrls[0] ?? hydratedTechPark.exterior_media_url ?? null,
         verificationLifecycleStatus: lifecycleStatus,
         isVerificationFormComplete: formState.isFormComplete,
         hasVerificationProgress: formState.hasFormProgress,

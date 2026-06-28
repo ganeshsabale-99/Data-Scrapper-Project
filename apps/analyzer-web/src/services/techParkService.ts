@@ -330,6 +330,21 @@ export const techParkService = {
     return response.data;
   },
 
+  async discoverCompaniesByTechPark(techParkId: string) {
+    const response = await axiosInstance.post(`/new-techparks/${techParkId}/companies/discover`);
+    return response.data;
+  },
+
+  async enrichCompaniesByTechPark(techParkId: string) {
+    const response = await axiosInstance.post(`/new-techparks/${techParkId}/companies/enrich-details`);
+    return response.data;
+  },
+
+  async enrichTechParkWebsiteDetails(techParkId: string) {
+    const response = await axiosInstance.post(`/new-techparks/${techParkId}/enrich-website-details`);
+    return response.data;
+  },
+
   async updateCompany(companyId: string, payload: {
     name?: string;
     address?: string;
