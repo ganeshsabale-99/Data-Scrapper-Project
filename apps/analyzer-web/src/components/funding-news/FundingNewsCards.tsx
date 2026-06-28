@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useNavigate } from 'react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -6,7 +7,7 @@ import {
   BookmarkCheck,
   ExternalLink,
   Calendar,
-  Building2
+  Eye
 } from 'lucide-react';
 import type { FundingNews } from '@/services/fundingNewsService';
 
@@ -26,6 +27,7 @@ const getSourceColor = (source: string) => {
 };
 
 export default function FundingNewsCards({ news, onToggleBookmark, loading }: FundingNewsCardsProps) {
+  const navigate = useNavigate();
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
     try {
@@ -111,6 +113,14 @@ export default function FundingNewsCards({ news, onToggleBookmark, loading }: Fu
                   Read Article
                 </Button>
                 <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate(`/dashboard/funding-news/${item.id}/details`)}
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-purple-600 hover:bg-purple-50"
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+                <Button
                   variant={item.is_bookmarked ? "default" : "outline"}
                   size="sm"
                   onClick={() => onToggleBookmark(item.id)}
@@ -137,7 +147,7 @@ export default function FundingNewsCards({ news, onToggleBookmark, loading }: Fu
       {news.length === 0 && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Building2 className="w-12 h-12 text-slate-400 mb-4" />
+            <Eye className="w-12 h-12 text-slate-400 mb-4" />
             <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
               No funding news found
             </h3>

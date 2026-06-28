@@ -312,10 +312,10 @@ export default function ProfilePage() {
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-900 p-6">
             <ToastBanner toast={toast} />
 
-            <div className="max-w-2xl mx-auto">
+            <div className="max-w-[1200px] mx-auto px-4 md:px-8">
                 <Button variant="ghost" size="sm" onClick={() => navigate(-1)}
-                    className="mb-6 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 -ml-2">
-                    <ArrowLeft className="h-4 w-4 mr-1" /> Back
+                    className="mb-4 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 -ml-2">
+                    <ArrowLeft className="h-4 w-4 mr-2" /> Back
                 </Button>
 
                 <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
@@ -326,124 +326,136 @@ export default function ProfilePage() {
                         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 20%, white 1px, transparent 1px)", backgroundSize: "30px 30px" }} />
                     </div>
 
-                    {/* Avatar + Name */}
-                    <div className="px-8 pb-4">
-                        <div className="flex items-end justify-between -mt-12 mb-4">
+                    {/* Profile Header Section */}
+                    <div className="px-8 py-6 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-16 md:-mt-12">
                             {/* Avatar with edit overlay */}
-                            <div className="relative group">
-                                <Avatar className="h-20 w-20 ring-4 ring-white dark:ring-slate-900 shadow-xl">
+                            <div className="relative group shrink-0">
+                                <Avatar className="h-28 w-28 md:h-32 md:w-32 ring-8 ring-white dark:ring-slate-900 shadow-2xl">
                                     <AvatarImage src={avatarUrl || "/avatars/01.png"} alt="User" />
-                                    <AvatarFallback className="text-xl font-bold bg-gradient-to-br from-blue-400 to-indigo-600 text-white">{initials}</AvatarFallback>
+                                    <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-blue-400 to-indigo-600 text-white">{initials}</AvatarFallback>
                                 </Avatar>
                                 {editing && (
                                     <div className="absolute inset-0 rounded-full flex items-center justify-center gap-1 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                                         onClick={() => fileInputRef.current?.click()}>
                                         {avatarLoading
-                                            ? <Loader2 className="h-5 w-5 text-white animate-spin" />
-                                            : <Camera className="h-5 w-5 text-white" />}
+                                            ? <Loader2 className="h-6 w-6 text-white animate-spin" />
+                                            : <Camera className="h-6 w-6 text-white" />}
                                     </div>
                                 )}
                                 {editing && avatarUrl && !avatarLoading && (
                                     <button
                                         onClick={handleAvatarRemove}
-                                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow"
+                                        className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg border-2 border-white dark:border-slate-900"
                                         title="Remove photo"
                                     >
-                                        <Trash2 className="h-3 w-3 text-white" />
+                                        <Trash2 className="h-3.5 w-3.5 text-white" />
                                     </button>
                                 )}
                             </div>
-                            {editing && (
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
-                                    disabled={avatarLoading}
-                                >
-                                    <Camera className="h-3.5 w-3.5" /> Change photo (Max 5MB)
-                                </button>
-                            )}
-                            {!editing && roleLabel && (
-                                <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-semibold rounded-full border border-blue-100 dark:border-blue-800">
-                                    <BadgeCheck className="h-3.5 w-3.5" />{roleLabel}
-                                </span>
-                            )}
-                        </div>
-                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{displayName}</h1>
-                        {displayEmail && <p className="text-slate-500 text-sm mt-0.5">{displayEmail}</p>}
-                    </div>
 
-                    {/* Tabs */}
-                    <div className="px-8 pb-2">
-                        <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-fit">
-                            {(["info", "password"] as const).map(tab => (
-                                <button key={tab} onClick={() => { setActiveTab(tab); setEditing(false); }}
-                                    className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab === tab ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-700"}`}>
-                                    {tab === "info" ? "Profile Info" : "Change Password"}
-                                </button>
-                            ))}
+                            <div className="space-y-1 pb-1">
+                                <div className="flex items-center gap-3">
+                                    <h1 className="text-3xl font-bold text-slate-900 dark:text-white">{displayName}</h1>
+                                    {!editing && roleLabel && (
+                                        <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] uppercase tracking-wider font-bold rounded-full border border-blue-100 dark:border-blue-800">
+                                            <BadgeCheck className="h-3 w-3" />{roleLabel}
+                                        </span>
+                                    )}
+                                </div>
+                                {displayEmail && <p className="text-slate-500 font-medium">{displayEmail}</p>}
+                                {editing && (
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1.5 mt-2"
+                                        disabled={avatarLoading}
+                                    >
+                                        <Camera className="h-4 w-4" /> Change profile photo
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-3 pb-1">
+                            <div className="flex gap-1 p-1 bg-slate-100/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl">
+                                {(["info", "password"] as const).map(tab => (
+                                    <button key={tab} onClick={() => { setActiveTab(tab); setEditing(false); }}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-all ${activeTab === tab ? "bg-white dark:bg-slate-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-slate-500 dark:text-slate-400 hover:text-slate-700"}`}>
+                                        {tab === "info" ? "Profile Info" : "Change Password"}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
+                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
                     <div className="px-8 pb-8 pt-4">
                         {/* ── Profile Info Tab ── */}
                         {activeTab === "info" && (
                             <>
-                                <div className="flex items-center justify-between mb-3">
-                                    <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Account Details</h2>
+                                <div className="flex items-center justify-between mb-6">
+                                    <div>
+                                        <h2 className="text-lg font-bold text-slate-900 dark:text-white">Account Details</h2>
+                                        <p className="text-sm text-slate-500">Manage your personal information and contact details.</p>
+                                    </div>
                                     {!editing ? (
-                                        <Button variant="outline" size="sm" onClick={() => setEditing(true)} className="gap-1">
-                                            <Pencil className="h-3.5 w-3.5" /> Edit
+                                        <Button variant="outline" onClick={() => setEditing(true)} className="gap-2 border-blue-100 dark:border-blue-800 text-blue-600 dark:text-blue-400 font-semibold hover:bg-blue-50">
+                                            <Pencil className="h-4 w-4" /> Edit Profile
                                         </Button>
                                     ) : (
-                                        <div className="flex gap-2">
-                                            <Button variant="ghost" size="sm" onClick={() => { setEditing(false); reload(); }} className="gap-1 text-slate-500">
-                                                <X className="h-3.5 w-3.5" /> Cancel
+                                        <div className="flex gap-3">
+                                            <Button variant="ghost" onClick={() => { setEditing(false); reload(); }} className="gap-2 text-slate-500">
+                                                <X className="h-4 w-4" /> Cancel
                                             </Button>
-                                            <Button size="sm" onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white gap-1">
-                                                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save
+                                            <Button onClick={handleSave} disabled={loading} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 shadow-lg shadow-blue-200">
+                                                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save
                                             </Button>
                                         </div>
                                     )}
                                 </div>
 
                                 {editing ? (
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5 space-y-4">
-                                        {[
-                                            { id: "name", label: "Full Name", icon: User, val: form.name, key: "name" as const },
-                                            { id: "email", label: "Email Address", icon: Mail, val: form.email, key: "email" as const },
-                                            { id: "city", label: "City", icon: MapPin, val: form.city, key: "city" as const },
-                                            { id: "state", label: "State", icon: MapPin, val: form.state, key: "state" as const },
-                                        ].map(f => (
-                                            <div key={f.id}>
-                                                <Label htmlFor={f.id} className="flex items-center gap-1.5 text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                                                    <f.icon className="h-3.5 w-3.5" />{f.label}
-                                                </Label>
-                                                <Input id={f.id} value={f.val}
-                                                    onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                                                    placeholder={f.label}
-                                                />
-                                            </div>
-                                        ))}
-                                        {/* Phone read-only */}
-                                        {displayPhone && (
-                                            <div>
-                                                <Label className="flex items-center gap-1.5 text-xs font-medium text-slate-500 uppercase tracking-wide mb-1">
-                                                    <Phone className="h-3.5 w-3.5" />Phone Number
-                                                </Label>
-                                                <Input value={displayPhone} disabled className="opacity-60" />
-                                                <p className="text-xs text-slate-400 mt-1">Phone number cannot be changed.</p>
-                                            </div>
-                                        )}
+                                    <div className="bg-slate-50/50 dark:bg-slate-800/30 rounded-3xl p-8 border border-slate-100 dark:border-slate-800">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+                                            {[
+                                                { id: "name", label: "Full Name", icon: User, val: form.name, key: "name" as const },
+                                                { id: "email", label: "Email Address", icon: Mail, val: form.email, key: "email" as const },
+                                                { id: "city", label: "City", icon: MapPin, val: form.city, key: "city" as const },
+                                                { id: "state", label: "State", icon: MapPin, val: form.state, key: "state" as const },
+                                            ].map(f => (
+                                                <div key={f.id} className="space-y-2">
+                                                    <Label htmlFor={f.id} className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                        <f.icon className="h-3 w-3" />{f.label}
+                                                    </Label>
+                                                    <Input id={f.id} value={f.val}
+                                                        onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                                                        placeholder={f.label}
+                                                        className="h-11 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+                                                    />
+                                                </div>
+                                            ))}
+                                            {/* Phone read-only */}
+                                            {displayPhone && (
+                                                <div className="space-y-2">
+                                                    <Label className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                        <Phone className="h-3 w-3" />Phone Number
+                                                    </Label>
+                                                    <Input value={displayPhone} disabled className="h-11 rounded-xl opacity-60 bg-slate-100 dark:bg-slate-800 border-none cursor-not-allowed" />
+                                                    <p className="text-[10px] text-slate-400 font-medium">Phone number cannot be changed.</p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl px-4">
-                                        <InfoRow icon={User} label="Full Name" value={displayName} />
-                                        <InfoRow icon={Mail} label="Email Address" value={displayEmail} />
-                                        <InfoRow icon={Phone} label="Phone Number" value={displayPhone} />
-                                        <InfoRow icon={Shield} label="Role" value={roleLabel} accent />
-                                        <InfoRow icon={MapPin} label="City" value={storedUser?.city} />
-                                        <InfoRow icon={MapPin} label="State" value={storedUser?.state} />
+                                    <div className="bg-slate-50/50 dark:bg-slate-800/30 rounded-3xl p-4 border border-slate-100 dark:border-slate-800">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 px-4">
+                                            <InfoRow icon={User} label="Full Name" value={displayName} />
+                                            <InfoRow icon={Mail} label="Email Address" value={displayEmail} />
+                                            <InfoRow icon={Phone} label="Phone Number" value={displayPhone} />
+                                            <InfoRow icon={Shield} label="Role" value={roleLabel} accent />
+                                            <InfoRow icon={MapPin} label="City" value={storedUser?.city} />
+                                            <InfoRow icon={MapPin} label="State" value={storedUser?.state} />
+                                        </div>
                                     </div>
                                 )}
                             </>
@@ -452,9 +464,13 @@ export default function ProfilePage() {
                         {/* ── Change Password Tab ── */}
                         {activeTab === "password" && (
                             <>
-                                <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-4">Change Password</h2>
-                                <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-5">
-                                    <ChangePasswordSection onSuccess={() => setActiveTab("info")} />
+                                <div className="mb-6">
+                                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Change Password</h2>
+                                </div>
+                                <div className="bg-slate-50/50 dark:bg-slate-800/30 rounded-3xl p-8 border border-slate-100 dark:border-slate-800">
+                                    <div className="max-w-md">
+                                        <ChangePasswordSection onSuccess={() => setActiveTab("info")} />
+                                    </div>
                                 </div>
                             </>
                         )}
