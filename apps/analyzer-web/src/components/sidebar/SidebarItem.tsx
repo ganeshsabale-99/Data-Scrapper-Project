@@ -26,11 +26,12 @@ export const SidebarItem = ({
 }: SidebarItemProps) => {
   const location = useLocation();
   const toPath = to.split('?')[0] || to;
-  // Check if current path starts with the sidebar item path for nested routes
-  // Check if current path starts with the sidebar item path for nested routes
-  // Ensure we don't match partial segments (e.g. /attendance should not match /attendance-reports)
-  const isActive = location.pathname === toPath ||
+  const toSearch = to.includes('?') ? to.split('?')[1] : '';
+  const targetTab = new URLSearchParams(toSearch).get('tab');
+  const currentTab = new URLSearchParams(location.search).get('tab');
+  const pathMatch = location.pathname === toPath ||
     (toPath !== "/dashboard" && location.pathname.startsWith(`${toPath}/`));
+  const isActive = pathMatch && (targetTab ? currentTab === targetTab : true);
 
   const linkClasses = cn(
     "flex items-center rounded-lg transition-all duration-200 text-sm font-medium shadow-sm",

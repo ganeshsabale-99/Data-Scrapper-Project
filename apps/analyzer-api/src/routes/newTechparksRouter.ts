@@ -36,6 +36,14 @@ import {
   addVisitLog,
   addContactLog,
 } from "../controller/techParkActivity.controller";
+import {
+  triggerCoworkingScrape,
+  getCoworkingScrapeStatus,
+} from "../controller/coworkingScraperController";
+import {
+  triggerTechParkScrape,
+  getTechParkScrapeStatus,
+} from "../controller/techParkScraperController";
 
 export const newTechparksRouter: Router = Router();
 
@@ -48,6 +56,10 @@ const canManageTechParks = checkPermission(["TECHPARKS.MANAGE"], {
 });
 
 const canVerifyTechParks = checkPermission(["TECHPARKS.VERIFY"], {
+  mode: "any",
+});
+
+const canSuperAdmin = checkPermission(["SYSTEM.SUPER_ADMIN"], {
   mode: "any",
 });
 
@@ -100,6 +112,36 @@ newTechparksRouter.delete(
   canManageTechParks,
   deleteCompany,
 );
+newTechparksRouter.post(
+  "/scrape-coworking",
+  authenticateToken,
+  canSuperAdmin,
+  triggerCoworkingScrape,
+);
+newTechparksRouter.get(
+  "/scrape-coworking/status",
+  authenticateToken,
+  canSuperAdmin,
+  getCoworkingScrapeStatus,
+);
+newTechparksRouter.post(
+  "/scrape-techparks",
+  authenticateToken,
+  canSuperAdmin,
+  triggerTechParkScrape,
+);
+newTechparksRouter.get(
+  "/scrape-techparks/status",
+  authenticateToken,
+  canSuperAdmin,
+  getTechParkScrapeStatus,
+);
+newTechparksRouter.get(
+  "/pending-reviews",
+  authenticateToken,
+  canVerifyTechParks,
+  getPendingReviews,
+);
 newTechparksRouter.get("/:id", authenticateToken, canViewTechParks, getTechParkById);
 newTechparksRouter.post(
   "/city-wise-overview/:state/:city/add-tech-park",
@@ -118,12 +160,6 @@ newTechparksRouter.post(
   authenticateToken,
   canVerifyTechParks,
   verifyAllCityTechParks,
-);
-newTechparksRouter.get(
-  "/pending-reviews",
-  authenticateToken,
-  canVerifyTechParks,
-  getPendingReviews,
 );
 newTechparksRouter.post(
   "/:id/verify",

@@ -67,6 +67,10 @@ export const INDIA_STATES_AND_UTS: readonly string[] = [
 export const TAB_ITEMS = [
   { key: "techParks" as const, label: "Tech Parks" },
   { key: "coworkingSpaces" as const, label: "Coworking Spaces" },
+  { key: "malls" as const, label: "Malls" },
+  { key: "hospitals" as const, label: "Hospitals" },
+  { key: "stadiums" as const, label: "Stadiums" },
+  { key: "airports" as const, label: "Airports" },
 ];
 
 export const DEFAULT_NEW_LOCATION = {

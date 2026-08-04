@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { SidebarItem } from "./SidebarItem";
+import { SidebarGroup } from "./SidebarGroup";
 import {
   ChevronLeft,
   ChevronRight,
@@ -17,6 +18,11 @@ import {
   Building2,
   UserCog,
   Key,
+  Briefcase,
+  ShoppingBag,
+  Activity,
+  Trophy,
+  Plane,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -81,9 +87,12 @@ export const Sidebar = ({ onClose, isMobile = false }: SidebarProps) => {
     if (userState) {
       return `/dashboard/city/${encodeURIComponent(userState)}/${encodeURIComponent(userCity)}`;
     }
-    // Backward-compatible fallback when user profile has city but no state.
     return `/dashboard/city/${encodeURIComponent(userCity)}`;
   }, [userCity, userState]);
+
+  const stateBase = useMemo(() => {
+    return userState ? `/dashboard/state/${encodeURIComponent(userState)}` : "/dashboard/state";
+  }, [userState]);
 
   const displayName = storedUser?.name || "User";
   const displayEmail = storedUser?.email || "";
@@ -178,35 +187,68 @@ export const Sidebar = ({ onClose, isMobile = false }: SidebarProps) => {
         <nav className="flex-1 overflow-y-auto p-3 space-y-2">
           {/* National Tab - Only for Admin */}
           {roleAccess.canAccessNational && (
-            <SidebarItem
-              to="/dashboard/national"
-              icon={Globe}
-              label="National"
-              collapsed={collapsed && !isMobile}
-              onClick={isMobile ? onClose : undefined}
-            />
+            collapsed && !isMobile ? (
+              <SidebarItem
+                to="/dashboard/national?tab=techParks"
+                icon={Globe}
+                label="National"
+                collapsed={true}
+                onClick={isMobile ? onClose : undefined}
+              />
+            ) : (
+              <SidebarGroup title="National" collapsed={false}>
+                <SidebarItem to="/dashboard/national?tab=techParks" icon={Building2} label="Tech Parks" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to="/dashboard/national?tab=coworkingSpaces" icon={Briefcase} label="Coworking Spaces" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to="/dashboard/national?tab=malls" icon={ShoppingBag} label="Malls" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to="/dashboard/national?tab=hospitals" icon={Activity} label="Hospitals" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to="/dashboard/national?tab=stadiums" icon={Trophy} label="Stadiums" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to="/dashboard/national?tab=airports" icon={Plane} label="Airports" collapsed={false} onClick={isMobile ? onClose : undefined} />
+              </SidebarGroup>
+            )
           )}
 
           {/* State Tab - For Admin and Sales Manager */}
           {roleAccess.canAccessState && (
-            <SidebarItem
-              to={userState ? `/dashboard/state/${encodeURIComponent(userState)}` : "/dashboard/state"}
-              icon={Flag}
-              label={userState ? `State (${userState})` : "State"}
-              collapsed={collapsed && !isMobile}
-              onClick={isMobile ? onClose : undefined}
-            />
+            collapsed && !isMobile ? (
+              <SidebarItem
+                to={`${stateBase}?tab=techParks`}
+                icon={Flag}
+                label={userState ? `State (${userState})` : "State"}
+                collapsed={true}
+                onClick={isMobile ? onClose : undefined}
+              />
+            ) : (
+              <SidebarGroup title={userState ? `State (${userState})` : "State"} collapsed={false}>
+                <SidebarItem to={`${stateBase}?tab=techParks`} icon={Building2} label="Tech Parks" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${stateBase}?tab=coworkingSpaces`} icon={Briefcase} label="Coworking Spaces" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${stateBase}?tab=malls`} icon={ShoppingBag} label="Malls" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${stateBase}?tab=hospitals`} icon={Activity} label="Hospitals" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${stateBase}?tab=stadiums`} icon={Trophy} label="Stadiums" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${stateBase}?tab=airports`} icon={Plane} label="Airports" collapsed={false} onClick={isMobile ? onClose : undefined} />
+              </SidebarGroup>
+            )
           )}
 
           {/* City Tab - For all roles */}
           {roleAccess.canAccessCity && (
-            <SidebarItem
-              to={cityDashboardPath}
-              icon={MapPin}
-              label={userCity ? `City (${userCity})` : "City"}
-              collapsed={collapsed && !isMobile}
-              onClick={isMobile ? onClose : undefined}
-            />
+            collapsed && !isMobile ? (
+              <SidebarItem
+                to={`${cityDashboardPath}?tab=techParks`}
+                icon={MapPin}
+                label={userCity ? `City (${userCity})` : "City"}
+                collapsed={true}
+                onClick={isMobile ? onClose : undefined}
+              />
+            ) : (
+              <SidebarGroup title={userCity ? `City (${userCity})` : "City"} collapsed={false}>
+                <SidebarItem to={`${cityDashboardPath}?tab=techParks`} icon={Building2} label="Tech Parks" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${cityDashboardPath}?tab=coworkingSpaces`} icon={Briefcase} label="Coworking Spaces" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${cityDashboardPath}?tab=malls`} icon={ShoppingBag} label="Malls" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${cityDashboardPath}?tab=hospitals`} icon={Activity} label="Hospitals" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${cityDashboardPath}?tab=stadiums`} icon={Trophy} label="Stadiums" collapsed={false} onClick={isMobile ? onClose : undefined} />
+                <SidebarItem to={`${cityDashboardPath}?tab=airports`} icon={Plane} label="Airports" collapsed={false} onClick={isMobile ? onClose : undefined} />
+              </SidebarGroup>
+            )
           )}
 
           {/* Funding News Tab - For Admin, Sales Manager, Sales Team, and Sales Executive */}

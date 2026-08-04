@@ -112,7 +112,7 @@ interface AddLocationDialogProps<TLocation extends LocationDraft> {
   handleAddLocation: (locationData?: TLocation) => void;
   resetForm: () => void;
   isSubmitting?: boolean;
-  segment?: "techParks" | "coworkingSpaces";
+  segment?: string;
   enableExtendedTechParkFields?: boolean;
 }
 

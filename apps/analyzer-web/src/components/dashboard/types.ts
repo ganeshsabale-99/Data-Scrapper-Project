@@ -1,4 +1,4 @@
-export type Segment = "techParks" | "coworkingSpaces";
+export type Segment = "techParks" | "coworkingSpaces" | "malls" | "hospitals" | "stadiums" | "airports";
 
 export type CurrentView = "states" | "state-details" | "city-details";
 

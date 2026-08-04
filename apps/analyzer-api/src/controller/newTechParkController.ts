@@ -615,8 +615,7 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
         orderBy: { city: "asc" },
         select: { city: true },
       }),
-      prismaInstance.newTechPark.groupBy({
-        by: ["city", "district"],
+      prismaInstance.newTechPark.findMany({
         where: techParkWhere,
         select: {
           name: true,
@@ -624,6 +623,7 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
           address_line1: true,
           locality: true,
           city: true,
+          district: true,
           state: true,
           reception_phone: true,
           international_phone: true,
@@ -661,10 +661,7 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
     const aliasMap = await getCityAliasMap();
     const normalizeKey = (s: string) => s.trim().toLowerCase();
     const cityMap = new Map<string, { city: string; count: number }>();
-    uniqueTechParks.forEach((park: any) => {
-      const cityRaw = String(park.city || "").trim();
-      const city = cityRaw || "Unknown";
-    cityGroups.forEach((group) => {
+    uniqueTechParks.forEach((group) => {
       const cityRaw = (group.city || "").trim();
       const districtRaw = (group.district || "").trim();
       const count = Number(group._count?._all ?? 0);
@@ -1314,7 +1311,9 @@ export const changeTechParkStatus = async (req: Request, res: Response) => {
           },
         });
       }
-    } catch (e) { }
+    } catch (e) {
+      logOperationalEvent("newTechPark.changeTechParkStatus.activityLog_failed", { id, error: e instanceof Error ? e.message : String(e) }, "warn");
+    }
 
     res.json({ success: true, data: updatedTechPark });
   } catch (err) {
@@ -1528,7 +1527,9 @@ export const verifyTechParkDetails = async (req: Request, res: Response) => {
           userAgent: req.headers["user-agent"],
         },
       });
-    } catch (e) { }
+    } catch (e) {
+      logOperationalEvent("newTechPark.verifyTechParkDetails.activityLog_failed", { id, error: e instanceof Error ? e.message : String(e) }, "warn");
+    }
 
 
 
@@ -1928,8 +1929,8 @@ export const addCompanyToTechPark = async (req: Request, res: Response) => {
         name: payload.name,
         address: payload.address || techPark.address_line1 || '',
         city: payload.city || techPark.city || '',
-        locationLat: typeof payload.locationLat === 'number' ? payload.locationLat : 0,
-        locationLng: typeof payload.locationLng === 'number' ? payload.locationLng : 0,
+        locationLat: typeof payload.locationLat === 'number' ? payload.locationLat : null,
+        locationLng: typeof payload.locationLng === 'number' ? payload.locationLng : null,
         website: payload.website || null,
         description: payload.description || null,
         operator: payload.operator || null,
@@ -2615,7 +2616,9 @@ export const editTechPark = async (
           });
         }
       }
-    } catch (e) { }
+    } catch (e) {
+      logOperationalEvent("newTechPark.editTechPark.activityLog_failed", { id, error: e instanceof Error ? e.message : String(e) }, "warn");
+    }
 
     return res.status(200).json({
       success: true,

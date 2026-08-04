@@ -518,6 +518,178 @@ model ExternalApiRequestLog {
 
 
 
+model Mall {
+  id                  String    @id @default(cuid())
+  place_id            String    @unique
+  name                String
+  address             String?
+  locality            String?
+  district            String?
+  city                String?
+  state               String?
+  pincode             String?
+  country             String?
+  lat                 Float?
+  lng                 Float?
+  map_url             String?
+  photo_url           String?
+  website             String?
+  reception_phone     String?
+  international_phone String?
+  generic_email       String?
+  rating              Float?
+  total_ratings       Int?
+  types               String[]
+  business_status     String?
+  parking_score       String?
+  status              Status    @default(NOT_CONTACTED)
+  is_active           Boolean   @default(true)
+  isVerified          Boolean   @default(false)
+  verifiedAt          DateTime?
+  spoc_name           String?
+  spoc_phone          String?
+  challenges          String?
+  notes_internal      String?
+  first_seen_at       DateTime?
+  last_seen_at        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([state])
+  @@index([state, city])
+  @@index([status])
+  @@index([is_active])
+}
+
+model Hospital {
+  id                  String    @id @default(cuid())
+  place_id            String    @unique
+  name                String
+  address             String?
+  locality            String?
+  district            String?
+  city                String?
+  state               String?
+  pincode             String?
+  country             String?
+  lat                 Float?
+  lng                 Float?
+  map_url             String?
+  photo_url           String?
+  website             String?
+  reception_phone     String?
+  international_phone String?
+  generic_email       String?
+  rating              Float?
+  total_ratings       Int?
+  types               String[]
+  business_status     String?
+  parking_score       String?
+  status              Status    @default(NOT_CONTACTED)
+  is_active           Boolean   @default(true)
+  isVerified          Boolean   @default(false)
+  verifiedAt          DateTime?
+  spoc_name           String?
+  spoc_phone          String?
+  challenges          String?
+  notes_internal      String?
+  first_seen_at       DateTime?
+  last_seen_at        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([state])
+  @@index([state, city])
+  @@index([status])
+  @@index([is_active])
+}
+
+model Stadium {
+  id                  String    @id @default(cuid())
+  place_id            String    @unique
+  name                String
+  address             String?
+  locality            String?
+  district            String?
+  city                String?
+  state               String?
+  pincode             String?
+  country             String?
+  lat                 Float?
+  lng                 Float?
+  map_url             String?
+  photo_url           String?
+  website             String?
+  reception_phone     String?
+  international_phone String?
+  generic_email       String?
+  rating              Float?
+  total_ratings       Int?
+  types               String[]
+  business_status     String?
+  parking_score       String?
+  status              Status    @default(NOT_CONTACTED)
+  is_active           Boolean   @default(true)
+  isVerified          Boolean   @default(false)
+  verifiedAt          DateTime?
+  spoc_name           String?
+  spoc_phone          String?
+  challenges          String?
+  notes_internal      String?
+  first_seen_at       DateTime?
+  last_seen_at        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([state])
+  @@index([state, city])
+  @@index([status])
+  @@index([is_active])
+}
+
+model Airport {
+  id                  String    @id @default(cuid())
+  place_id            String    @unique
+  name                String
+  address             String?
+  locality            String?
+  district            String?
+  city                String?
+  state               String?
+  pincode             String?
+  country             String?
+  lat                 Float?
+  lng                 Float?
+  map_url             String?
+  photo_url           String?
+  website             String?
+  reception_phone     String?
+  international_phone String?
+  generic_email       String?
+  rating              Float?
+  total_ratings       Int?
+  types               String[]
+  business_status     String?
+  parking_score       String?
+  status              Status    @default(NOT_CONTACTED)
+  is_active           Boolean   @default(true)
+  isVerified          Boolean   @default(false)
+  verifiedAt          DateTime?
+  spoc_name           String?
+  spoc_phone          String?
+  challenges          String?
+  notes_internal      String?
+  first_seen_at       DateTime?
+  last_seen_at        DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([state])
+  @@index([state, city])
+  @@index([status])
+  @@index([is_active])
+}
+
 enum AdminUserStatus {
   REGISTERED
   OTP_PENDING

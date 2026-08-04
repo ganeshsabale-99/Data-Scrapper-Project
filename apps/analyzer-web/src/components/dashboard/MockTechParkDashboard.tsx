@@ -55,6 +55,16 @@ import {
   useVerifyCoworkingSpace,
   useUnverifyCoworkingSpace
 } from "@/hooks/use-coworking-space-queries";
+import {
+  useMallOverviewData, useMallStateWiseData, useMallCityWiseData,
+  useHospitalOverviewData, useHospitalStateWiseData, useHospitalCityWiseData,
+  useStadiumOverviewData, useStadiumStateWiseData, useStadiumCityWiseData,
+  useAirportOverviewData, useAirportStateWiseData, useAirportCityWiseData,
+  useAddGenericVenue, useDeleteGenericVenue, useChangeGenericVenueStatus,
+  useUpdateGenericVenue, useVerifyGenericVenue, useUnverifyGenericVenue,
+} from "@/hooks/use-venue-queries";
+import { VENUE_SERVICES, type VenueSegment } from "@/services/genericVenueService";
+import type { VenueOverviewData, VenueStateWiseData, VenueCityWiseData } from "@/services/genericVenueService";
 import { useOperationStatus } from "@/hooks/use-operation-status";
 import { getUserPermissions, hasPermission } from "@/lib/token";
 import type { Location } from "@/pages/dashboard/LocationTable";
@@ -76,9 +86,9 @@ type EditableLocationRow = Location &
     verifiedByUserId?: string | null;
   };
 
-type CombinedOverviewData = OverviewData | CoworkingSpaceOverviewData;
-type CombinedStateWiseData = StateWiseOverviewData | CoworkingSpaceStateWiseOverviewData;
-type CombinedCityWiseData = CityWiseOverviewData | CoworkingSpaceCityWiseOverviewData;
+type CombinedOverviewData = OverviewData | CoworkingSpaceOverviewData | VenueOverviewData;
+type CombinedStateWiseData = StateWiseOverviewData | CoworkingSpaceStateWiseOverviewData | VenueStateWiseData;
+type CombinedCityWiseData = CityWiseOverviewData | CoworkingSpaceCityWiseOverviewData | VenueCityWiseData;
 
 type VerificationBreakdown = {
   all: number;
@@ -134,18 +144,8 @@ export default function MockTechParkDashboard() {
   const canApproveTechParkReview = normalizedPermissionSet.has("SYSTEM.SUPER_ADMIN");
   const canSubmitTechParkReview = hasPermission("TECHPARKS.VERIFY");
 
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const segment = (searchParams.get("tab") as Segment) || "techParks";
-
-  const setSegment = (newSegment: Segment) => {
-    setSearchParams(
-      (prev) => {
-        prev.set("tab", newSegment);
-        return prev;
-      },
-      { replace: true }
-    );
-  };
 
   const [cityPage, setCityPage] = useState(1);
   const [verificationFilter, setVerificationFilter] = useState<VerifiedFilter>("ALL");
@@ -189,6 +189,10 @@ export default function MockTechParkDashboard() {
     selectedStateForCityView || cityStateLookupData?.data?.state;
 
   const isTechParksSegment = segment === "techParks";
+  const isCoworkingSegment = segment === "coworkingSpaces";
+  const isGenericVenueSegment = !isTechParksSegment && !isCoworkingSegment;
+  const activeVenuePath = isGenericVenueSegment ? (segment as VenueSegment) : null;
+
   const shouldLoadOverview = currentView === "states";
   const shouldLoadStateWise = currentView === "state-details";
   const shouldLoadCityWise = currentView === "city-details";
@@ -231,7 +235,7 @@ export default function MockTechParkDashboard() {
     isLoading: isCoworkingOverviewLoading,
     error: coworkingOverviewError
   } = useCoworkingSpaceOverviewData({
-    enabled: !isTechParksSegment && shouldLoadOverview,
+    enabled: isCoworkingSegment && shouldLoadOverview,
   });
 
   const {
@@ -239,7 +243,7 @@ export default function MockTechParkDashboard() {
     isLoading: isCoworkingStateWiseLoading,
     error: coworkingStateWiseError
   } = useCoworkingSpaceStateWiseData(effectiveStateForCityView || "", {
-    enabled: !isTechParksSegment && shouldLoadStateWise,
+    enabled: isCoworkingSegment && shouldLoadStateWise,
   });
 
   const {
@@ -255,9 +259,58 @@ export default function MockTechParkDashboard() {
     debouncedCitySearchTerm,
     verificationFilter,
     {
-      enabled: !isTechParksSegment && shouldLoadCityWise,
+      enabled: isCoworkingSegment && shouldLoadCityWise,
     }
   );
+
+  // ── Malls ──────────────────────────────────────────────────────────────────
+  const { data: mallsOverviewData, isLoading: isMallsOverviewLoading, error: mallsOverviewError } =
+    useMallOverviewData({ enabled: segment === "malls" && shouldLoadOverview });
+  const { data: mallsStateWiseData, isLoading: isMallsStateWiseLoading, error: mallsStateWiseError } =
+    useMallStateWiseData(effectiveStateForCityView || "", { enabled: segment === "malls" && shouldLoadStateWise });
+  const { data: mallsCityWiseData, isLoading: isMallsCityLoading, isFetching: isMallsCityFetching, error: mallsCityError } =
+    useMallCityWiseData(effectiveStateForCityView || "", selectedCityForDetailView || "", cityPage, cityPageSize, debouncedCitySearchTerm, verificationFilter, { enabled: segment === "malls" && shouldLoadCityWise });
+
+  // ── Hospitals ──────────────────────────────────────────────────────────────
+  const { data: hospitalsOverviewData, isLoading: isHospitalsOverviewLoading, error: hospitalsOverviewError } =
+    useHospitalOverviewData({ enabled: segment === "hospitals" && shouldLoadOverview });
+  const { data: hospitalsStateWiseData, isLoading: isHospitalsStateWiseLoading, error: hospitalsStateWiseError } =
+    useHospitalStateWiseData(effectiveStateForCityView || "", { enabled: segment === "hospitals" && shouldLoadStateWise });
+  const { data: hospitalsCityWiseData, isLoading: isHospitalsCityLoading, isFetching: isHospitalsCityFetching, error: hospitalsCityError } =
+    useHospitalCityWiseData(effectiveStateForCityView || "", selectedCityForDetailView || "", cityPage, cityPageSize, debouncedCitySearchTerm, verificationFilter, { enabled: segment === "hospitals" && shouldLoadCityWise });
+
+  // ── Stadiums ───────────────────────────────────────────────────────────────
+  const { data: stadiumsOverviewData, isLoading: isStadiumsOverviewLoading, error: stadiumsOverviewError } =
+    useStadiumOverviewData({ enabled: segment === "stadiums" && shouldLoadOverview });
+  const { data: stadiumsStateWiseData, isLoading: isStadiumsStateWiseLoading, error: stadiumsStateWiseError } =
+    useStadiumStateWiseData(effectiveStateForCityView || "", { enabled: segment === "stadiums" && shouldLoadStateWise });
+  const { data: stadiumsCityWiseData, isLoading: isStadiumsCityLoading, isFetching: isStadiumsCityFetching, error: stadiumsCityError } =
+    useStadiumCityWiseData(effectiveStateForCityView || "", selectedCityForDetailView || "", cityPage, cityPageSize, debouncedCitySearchTerm, verificationFilter, { enabled: segment === "stadiums" && shouldLoadCityWise });
+
+  // ── Airports ───────────────────────────────────────────────────────────────
+  const { data: airportsOverviewData, isLoading: isAirportsOverviewLoading, error: airportsOverviewError } =
+    useAirportOverviewData({ enabled: segment === "airports" && shouldLoadOverview });
+  const { data: airportsStateWiseData, isLoading: isAirportsStateWiseLoading, error: airportsStateWiseError } =
+    useAirportStateWiseData(effectiveStateForCityView || "", { enabled: segment === "airports" && shouldLoadStateWise });
+  const { data: airportsCityWiseData, isLoading: isAirportsCityLoading, isFetching: isAirportsCityFetching, error: airportsCityError } =
+    useAirportCityWiseData(effectiveStateForCityView || "", selectedCityForDetailView || "", cityPage, cityPageSize, debouncedCitySearchTerm, verificationFilter, { enabled: segment === "airports" && shouldLoadCityWise });
+
+  // Normalize generic venue data for the active segment
+  const genericVenueOverviewData: VenueOverviewData | undefined =
+    segment === "malls" ? mallsOverviewData :
+    segment === "hospitals" ? hospitalsOverviewData :
+    segment === "stadiums" ? stadiumsOverviewData :
+    segment === "airports" ? airportsOverviewData : undefined;
+  const genericVenueStateWiseData: VenueStateWiseData | undefined =
+    segment === "malls" ? mallsStateWiseData :
+    segment === "hospitals" ? hospitalsStateWiseData :
+    segment === "stadiums" ? stadiumsStateWiseData :
+    segment === "airports" ? airportsStateWiseData : undefined;
+  const genericVenueCityWiseData: VenueCityWiseData | undefined =
+    segment === "malls" ? mallsCityWiseData :
+    segment === "hospitals" ? hospitalsCityWiseData :
+    segment === "stadiums" ? stadiumsCityWiseData :
+    segment === "airports" ? airportsCityWiseData : undefined;
 
   const addTechParkMutation = useAddTechPark();
   const deleteTechParkMutation = useDeleteTechPark();
@@ -274,6 +327,14 @@ export default function MockTechParkDashboard() {
   const verifyCoworkingSpaceMutation = useVerifyCoworkingSpace();
   const unverifyCoworkingSpaceMutation = useUnverifyCoworkingSpace();
 
+  // Generic venue mutations (malls / hospitals / stadiums / airports)
+  const genericAddMutation = useAddGenericVenue();
+  const genericDeleteMutation = useDeleteGenericVenue();
+  const genericChangeStatusMutation = useChangeGenericVenueStatus();
+  const genericUpdateMutation = useUpdateGenericVenue();
+  const genericVerifyMutation = useVerifyGenericVenue();
+  const genericUnverifyMutation = useUnverifyGenericVenue();
+
   useOperationStatus([
     addTechParkMutation,
     deleteTechParkMutation,
@@ -288,6 +349,12 @@ export default function MockTechParkDashboard() {
     editCoworkingSpaceMutation,
     verifyCoworkingSpaceMutation,
     unverifyCoworkingSpaceMutation,
+    genericAddMutation,
+    genericDeleteMutation,
+    genericChangeStatusMutation,
+    genericUpdateMutation,
+    genericVerifyMutation,
+    genericUnverifyMutation,
   ]);
 
   useEffect(() => {
@@ -305,15 +372,62 @@ export default function MockTechParkDashboard() {
       ? toApiErrorMessage(cityStateLookupError, "Unable to resolve state for selected city.")
       : null;
 
-  const currentOverviewLoading = segment === "techParks" ? isOverviewLoading : isCoworkingOverviewLoading;
-  const currentStateWiseLoading = segment === "techParks" ? isStateWiseLoading : isCoworkingStateWiseLoading;
-  const currentCityLoading =
-    (segment === "techParks" ? isCityLoading : isCoworkingCityLoading) ||
-    isResolvingCityState;
+  const genericOverviewLoading =
+    segment === "malls" ? isMallsOverviewLoading :
+    segment === "hospitals" ? isHospitalsOverviewLoading :
+    segment === "stadiums" ? isStadiumsOverviewLoading :
+    isAirportsOverviewLoading;
+  const genericStateWiseLoading =
+    segment === "malls" ? isMallsStateWiseLoading :
+    segment === "hospitals" ? isHospitalsStateWiseLoading :
+    segment === "stadiums" ? isStadiumsStateWiseLoading :
+    isAirportsStateWiseLoading;
+  const genericCityLoading =
+    segment === "malls" ? isMallsCityLoading :
+    segment === "hospitals" ? isHospitalsCityLoading :
+    segment === "stadiums" ? isStadiumsCityLoading :
+    isAirportsCityLoading;
+  const genericOverviewError =
+    segment === "malls" ? mallsOverviewError :
+    segment === "hospitals" ? hospitalsOverviewError :
+    segment === "stadiums" ? stadiumsOverviewError :
+    airportsOverviewError;
+  const genericStateWiseError =
+    segment === "malls" ? mallsStateWiseError :
+    segment === "hospitals" ? hospitalsStateWiseError :
+    segment === "stadiums" ? stadiumsStateWiseError :
+    airportsStateWiseError;
+  const genericCityError =
+    segment === "malls" ? mallsCityError :
+    segment === "hospitals" ? hospitalsCityError :
+    segment === "stadiums" ? stadiumsCityError :
+    airportsCityError;
 
-  const currentOverviewError = segment === "techParks" ? overviewError : coworkingOverviewError;
-  const currentStateWiseError = segment === "techParks" ? stateWiseError : coworkingStateWiseError;
-  const currentCityError = segment === "techParks" ? cityError : coworkingCityError;
+  const currentOverviewLoading =
+    segment === "techParks" ? isOverviewLoading :
+    segment === "coworkingSpaces" ? isCoworkingOverviewLoading :
+    genericOverviewLoading;
+  const currentStateWiseLoading =
+    segment === "techParks" ? isStateWiseLoading :
+    segment === "coworkingSpaces" ? isCoworkingStateWiseLoading :
+    genericStateWiseLoading;
+  const currentCityLoading =
+    (segment === "techParks" ? isCityLoading :
+    segment === "coworkingSpaces" ? isCoworkingCityLoading :
+    genericCityLoading) || isResolvingCityState;
+
+  const currentOverviewError =
+    segment === "techParks" ? overviewError :
+    segment === "coworkingSpaces" ? coworkingOverviewError :
+    genericOverviewError;
+  const currentStateWiseError =
+    segment === "techParks" ? stateWiseError :
+    segment === "coworkingSpaces" ? coworkingStateWiseError :
+    genericStateWiseError;
+  const currentCityError =
+    segment === "techParks" ? cityError :
+    segment === "coworkingSpaces" ? coworkingCityError :
+    genericCityError;
 
   const isLoading = currentView === "states"
     ? currentOverviewLoading
@@ -400,6 +514,37 @@ export default function MockTechParkDashboard() {
           setIsAddDialogOpen(false);
           resetForm();
         }
+      });
+    } else if (isGenericVenueSegment && activeVenuePath) {
+      genericAddMutation.mutate({
+        venuePath: activeVenuePath,
+        state,
+        city,
+        payload: {
+          name: dataToUse.name,
+          city,
+          state,
+          address: dataToUse.address || null,
+          reception_phone: dataToUse.phone || null,
+          status: dataToUse.status || "NOT_CONTACTED",
+          website: dataToUse.website || null,
+          rating: dataToUse.rating || null,
+          map_url: dataToUse.map_url || null,
+          spoc_name: dataToUse.spoc_name || null,
+          spoc_phone: dataToUse.spoc_phone || null,
+          challenges: dataToUse.challenges || null,
+          lat: dataToUse.lat ?? null,
+          lng: dataToUse.lng ?? null,
+          district: dataToUse.district || null,
+          pincode: dataToUse.pincode || null,
+          country: dataToUse.country || null,
+          generic_email: dataToUse.generic_email || null,
+        },
+      }, {
+        onSuccess: () => {
+          setIsAddDialogOpen(false);
+          resetForm();
+        },
       });
     } else {
       addCoworkingSpaceMutation.mutate({
@@ -536,6 +681,28 @@ export default function MockTechParkDashboard() {
         pincode: editableLocation.pincode || "",
       });
     }
+    // For generic venue segments, also populate from row data
+    if (isGenericVenueSegment) {
+      setNewLocation({
+        ...DEFAULT_NEW_LOCATION,
+        id: editableLocation.id,
+        name: editableLocation.name || "",
+        address: editableLocation.address || "",
+        website: editableLocation.website || "",
+        rating: editableLocation.rating || 0,
+        phone: editableLocation.phone || "",
+        map_url: editableLocation.map_url || "",
+        status: editableLocation.status || "NOT_CONTACTED",
+        spoc_name: editableLocation.spoc_name || "",
+        spoc_phone: editableLocation.spoc_phone || "",
+        challenges: editableLocation.challenges || "",
+        lat: typeof editableLocation.lat === "number" ? editableLocation.lat : null,
+        lng: typeof editableLocation.lng === "number" ? editableLocation.lng : null,
+        district: editableLocation.district || "",
+        pincode: editableLocation.pincode || "",
+        generic_email: editableLocation.generic_email || "",
+      });
+    }
     setIsEditDialogOpen(true);
   };
 
@@ -583,6 +750,34 @@ export default function MockTechParkDashboard() {
           setLocationToEdit(null);
           resetForm();
         }
+      });
+    } else if (isGenericVenueSegment && activeVenuePath) {
+      genericUpdateMutation.mutate({
+        venuePath: activeVenuePath,
+        id: locationToEdit.id,
+        payload: {
+          name: dataToUse.name,
+          address: dataToUse.address || null,
+          reception_phone: dataToUse.phone || null,
+          status: dataToUse.status || "NOT_CONTACTED",
+          website: dataToUse.website || null,
+          rating: dataToUse.rating || null,
+          map_url: dataToUse.map_url || null,
+          spoc_name: dataToUse.spoc_name || null,
+          spoc_phone: dataToUse.spoc_phone || null,
+          challenges: dataToUse.challenges || null,
+          lat: dataToUse.lat ?? null,
+          lng: dataToUse.lng ?? null,
+          district: dataToUse.district || null,
+          pincode: dataToUse.pincode || null,
+          generic_email: dataToUse.generic_email || null,
+        },
+      }, {
+        onSuccess: () => {
+          setIsEditDialogOpen(false);
+          setLocationToEdit(null);
+          resetForm();
+        },
       });
     } else {
       editCoworkingSpaceMutation.mutate({
@@ -645,6 +840,13 @@ export default function MockTechParkDashboard() {
           setLocationToDelete(null);
         }
       });
+    } else if (isGenericVenueSegment && activeVenuePath) {
+      genericDeleteMutation.mutate({ venuePath: activeVenuePath, id: locationToDelete.id }, {
+        onSuccess: () => {
+          setIsDeleteDialogOpen(false);
+          setLocationToDelete(null);
+        },
+      });
     } else {
       deleteCoworkingSpaceMutation.mutate(locationToDelete.id, {
         onSuccess: () => {
@@ -658,6 +860,8 @@ export default function MockTechParkDashboard() {
   const handleChangeStatus = async (location: Location, newStatus: string) => {
     if (segment === "techParks") {
       changeTechParkStatusMutation.mutate({ id: location.id, status: newStatus });
+    } else if (isGenericVenueSegment && activeVenuePath) {
+      genericChangeStatusMutation.mutate({ venuePath: activeVenuePath, id: location.id, status: newStatus });
     } else {
       changeCoworkingStatusMutation.mutate({ id: location.id, status: newStatus });
     }
@@ -671,6 +875,8 @@ export default function MockTechParkDashboard() {
     }
     if (segment === "techParks") {
       verifyTechParkMutation.mutate(location.id);
+    } else if (isGenericVenueSegment && activeVenuePath) {
+      genericVerifyMutation.mutate({ venuePath: activeVenuePath, id: location.id });
     } else {
       verifyCoworkingSpaceMutation.mutate(location.id);
     }
@@ -684,6 +890,8 @@ export default function MockTechParkDashboard() {
     }
     if (segment === "techParks") {
       unverifyTechParkMutation.mutate(location.id);
+    } else if (isGenericVenueSegment && activeVenuePath) {
+      genericUnverifyMutation.mutate({ venuePath: activeVenuePath, id: location.id });
     } else {
       unverifyCoworkingSpaceMutation.mutate(location.id);
     }
@@ -710,10 +918,16 @@ export default function MockTechParkDashboard() {
         queryFn: () => techParkService.getStateWiseOverview(state),
         staleTime: 5 * 60 * 1000,
       });
-    } else {
+    } else if (segment === "coworkingSpaces") {
       void queryClient.prefetchQuery({
         queryKey: ["coworkingSpaces", "stateWise", state],
         queryFn: () => coworkingSpaceService.getStateWiseOverview(state),
+        staleTime: 5 * 60 * 1000,
+      });
+    } else if (activeVenuePath) {
+      void queryClient.prefetchQuery({
+        queryKey: [segment, "stateWise", state],
+        queryFn: () => VENUE_SERVICES[activeVenuePath].getStateWiseOverview(state),
         staleTime: 5 * 60 * 1000,
       });
     }
@@ -742,11 +956,25 @@ export default function MockTechParkDashboard() {
             ),
           staleTime: 2 * 60 * 1000,
         });
-      } else {
+      } else if (segment === "coworkingSpaces") {
         void queryClient.prefetchQuery({
           queryKey: ["coworkingSpaces", "cityWise", effectiveStateForCityView, city, 1, cityPageSize, "ALL", ""],
           queryFn: () =>
             coworkingSpaceService.getCityWiseOverview(
+              effectiveStateForCityView,
+              city,
+              1,
+              cityPageSize,
+              undefined,
+              "ALL",
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
+      } else if (activeVenuePath) {
+        void queryClient.prefetchQuery({
+          queryKey: [segment, "cityWise", effectiveStateForCityView, city, 1, cityPageSize, "", "ALL"],
+          queryFn: () =>
+            VENUE_SERVICES[activeVenuePath].getCityWiseOverview(
               effectiveStateForCityView,
               city,
               1,
@@ -778,6 +1006,9 @@ export default function MockTechParkDashboard() {
       navigate(`/dashboard/coworking-spaces/${row.id}`);
       return;
     }
+
+    // Generic venue types don't have a separate detail page — no-op for now
+    if (isGenericVenueSegment) return;
 
     const basePath = getBasePath(pathname);
     navigate(
@@ -816,11 +1047,17 @@ export default function MockTechParkDashboard() {
   };
 
   const currentOverviewData: CombinedOverviewData | undefined =
-    segment === "techParks" ? overviewData : coworkingOverviewData;
+    segment === "techParks" ? overviewData :
+    segment === "coworkingSpaces" ? coworkingOverviewData :
+    genericVenueOverviewData;
   const currentStateWiseData: CombinedStateWiseData | undefined =
-    segment === "techParks" ? stateWiseData : coworkingStateWiseData;
+    segment === "techParks" ? stateWiseData :
+    segment === "coworkingSpaces" ? coworkingStateWiseData :
+    genericVenueStateWiseData;
   const currentCityWiseData: CombinedCityWiseData | undefined =
-    segment === "techParks" ? cityWiseData : coworkingCityWiseData;
+    segment === "techParks" ? cityWiseData :
+    segment === "coworkingSpaces" ? coworkingCityWiseData :
+    genericVenueCityWiseData;
 
   const statesDistribution = useMemo(() => {
     if (currentOverviewData?.stateData) {
@@ -842,14 +1079,23 @@ export default function MockTechParkDashboard() {
         positive: overviewData.positiveResponses,
       };
     }
-    if (!coworkingOverviewData) return undefined;
+    if (segment === "coworkingSpaces") {
+      if (!coworkingOverviewData) return undefined;
+      return {
+        total: coworkingOverviewData.totalCoworkingSpaces,
+        contacted: coworkingOverviewData.contactedCoworkingSpaces,
+        responseRate: coworkingOverviewData.responseRate,
+        positive: coworkingOverviewData.positiveResponses,
+      };
+    }
+    if (!genericVenueOverviewData) return undefined;
     return {
-      total: coworkingOverviewData.totalCoworkingSpaces,
-      contacted: coworkingOverviewData.contactedCoworkingSpaces,
-      responseRate: coworkingOverviewData.responseRate,
-      positive: coworkingOverviewData.positiveResponses,
+      total: genericVenueOverviewData.total,
+      contacted: genericVenueOverviewData.contacted,
+      responseRate: genericVenueOverviewData.responseRate,
+      positive: genericVenueOverviewData.positiveResponses,
     };
-  }, [segment, overviewData, coworkingOverviewData]);
+  }, [segment, overviewData, coworkingOverviewData, genericVenueOverviewData]);
 
   const stateRows = useMemo(() => {
     const stateData = currentOverviewData?.stateData ?? [];
@@ -997,14 +1243,23 @@ export default function MockTechParkDashboard() {
         positive: cityWiseData.positiveResponses,
       };
     }
-    if (!coworkingCityWiseData) return null;
+    if (segment === "coworkingSpaces") {
+      if (!coworkingCityWiseData) return null;
+      return {
+        total: coworkingCityWiseData.totalCoworkingSpaces,
+        contacted: coworkingCityWiseData.contactedCoworkingSpaces,
+        responseRate: coworkingCityWiseData.responseRate,
+        positive: coworkingCityWiseData.positiveResponses,
+      };
+    }
+    if (!genericVenueCityWiseData) return null;
     return {
-      total: coworkingCityWiseData.totalCoworkingSpaces,
-      contacted: coworkingCityWiseData.contactedCoworkingSpaces,
-      responseRate: coworkingCityWiseData.responseRate,
-      positive: coworkingCityWiseData.positiveResponses,
+      total: genericVenueCityWiseData.total,
+      contacted: genericVenueCityWiseData.contacted,
+      responseRate: genericVenueCityWiseData.responseRate,
+      positive: genericVenueCityWiseData.positiveResponses,
     };
-  }, [segment, cityWiseData, coworkingCityWiseData]);
+  }, [segment, cityWiseData, coworkingCityWiseData, genericVenueCityWiseData]);
 
   const routeStateStats = useMemo(() => {
     if (segment === "techParks") {
@@ -1016,14 +1271,23 @@ export default function MockTechParkDashboard() {
         positive: stateWiseData.positiveResponses,
       };
     }
-    if (!coworkingStateWiseData) return null;
+    if (segment === "coworkingSpaces") {
+      if (!coworkingStateWiseData) return null;
+      return {
+        total: coworkingStateWiseData.totalCoworkingSpaces,
+        contacted: coworkingStateWiseData.contactedCoworkingSpaces,
+        responseRate: coworkingStateWiseData.responseRate,
+        positive: coworkingStateWiseData.positiveResponses,
+      };
+    }
+    if (!genericVenueStateWiseData) return null;
     return {
-      total: coworkingStateWiseData.totalCoworkingSpaces,
-      contacted: coworkingStateWiseData.contactedCoworkingSpaces,
-      responseRate: coworkingStateWiseData.responseRate,
-      positive: coworkingStateWiseData.positiveResponses,
+      total: genericVenueStateWiseData.total,
+      contacted: genericVenueStateWiseData.contacted,
+      responseRate: genericVenueStateWiseData.responseRate,
+      positive: genericVenueStateWiseData.positiveResponses,
     };
-  }, [segment, stateWiseData, coworkingStateWiseData]);
+  }, [segment, stateWiseData, coworkingStateWiseData, genericVenueStateWiseData]);
 
   const selectedStateCitiesDistributionRoute = useMemo(() => {
     if (currentStateWiseData?.cityData) {
@@ -1050,15 +1314,21 @@ export default function MockTechParkDashboard() {
           queryFn: () => techParkService.getStateWiseOverview(state),
           staleTime: 5 * 60 * 1000,
         });
-      } else {
+      } else if (segment === "coworkingSpaces") {
         void queryClient.prefetchQuery({
           queryKey: ["coworkingSpaces", "stateWise", state],
           queryFn: () => coworkingSpaceService.getStateWiseOverview(state),
           staleTime: 5 * 60 * 1000,
         });
+      } else if (activeVenuePath) {
+        void queryClient.prefetchQuery({
+          queryKey: [segment, "stateWise", state],
+          queryFn: () => VENUE_SERVICES[activeVenuePath].getStateWiseOverview(state),
+          staleTime: 5 * 60 * 1000,
+        });
       }
     });
-  }, [currentOverviewData, currentView, queryClient, segment]);
+  }, [currentOverviewData, currentView, queryClient, segment, activeVenuePath]);
 
   useEffect(() => {
     if (currentView !== "state-details" || !effectiveStateForCityView) return;
@@ -1084,7 +1354,7 @@ export default function MockTechParkDashboard() {
             ),
           staleTime: 2 * 60 * 1000,
         });
-      } else {
+      } else if (segment === "coworkingSpaces") {
         void queryClient.prefetchQuery({
           queryKey: ["coworkingSpaces", "cityWise", effectiveStateForCityView, city, 1, cityPageSize, "ALL", ""],
           queryFn: () =>
@@ -1098,9 +1368,23 @@ export default function MockTechParkDashboard() {
             ),
           staleTime: 2 * 60 * 1000,
         });
+      } else if (activeVenuePath) {
+        void queryClient.prefetchQuery({
+          queryKey: [segment, "cityWise", effectiveStateForCityView, city, 1, cityPageSize, "", "ALL"],
+          queryFn: () =>
+            VENUE_SERVICES[activeVenuePath].getCityWiseOverview(
+              effectiveStateForCityView,
+              city,
+              1,
+              cityPageSize,
+              undefined,
+              "ALL",
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
       }
     });
-  }, [cityPageSize, currentStateWiseData, currentView, effectiveStateForCityView, queryClient, segment]);
+  }, [cityPageSize, currentStateWiseData, currentView, effectiveStateForCityView, queryClient, segment, activeVenuePath]);
 
   useEffect(() => {
     if (
@@ -1112,9 +1396,9 @@ export default function MockTechParkDashboard() {
     }
 
     const totalPages =
-      segment === "techParks"
-        ? cityWiseData?.totalPages ?? 0
-        : coworkingCityWiseData?.totalPages ?? 0;
+      segment === "techParks" ? cityWiseData?.totalPages ?? 0 :
+      segment === "coworkingSpaces" ? coworkingCityWiseData?.totalPages ?? 0 :
+      genericVenueCityWiseData?.totalPages ?? 0;
 
     if (totalPages <= 1) return;
 
@@ -1149,34 +1433,64 @@ export default function MockTechParkDashboard() {
         return;
       }
 
-      void queryClient.prefetchQuery({
-        queryKey: [
-          "coworkingSpaces",
-          "cityWise",
-          effectiveStateForCityView,
-          selectedCityForDetailView,
-          targetPage,
-          cityPageSize,
-          verificationFilter,
-          debouncedCitySearchTerm,
-        ],
-        queryFn: () =>
-          coworkingSpaceService.getCityWiseOverview(
+      if (segment === "coworkingSpaces") {
+        void queryClient.prefetchQuery({
+          queryKey: [
+            "coworkingSpaces",
+            "cityWise",
             effectiveStateForCityView,
             selectedCityForDetailView,
             targetPage,
             cityPageSize,
-            debouncedCitySearchTerm || undefined,
             verificationFilter,
-          ),
-        staleTime: 2 * 60 * 1000,
-      });
+            debouncedCitySearchTerm,
+          ],
+          queryFn: () =>
+            coworkingSpaceService.getCityWiseOverview(
+              effectiveStateForCityView,
+              selectedCityForDetailView,
+              targetPage,
+              cityPageSize,
+              debouncedCitySearchTerm || undefined,
+              verificationFilter,
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
+        return;
+      }
+
+      if (activeVenuePath) {
+        void queryClient.prefetchQuery({
+          queryKey: [
+            segment,
+            "cityWise",
+            effectiveStateForCityView,
+            selectedCityForDetailView,
+            targetPage,
+            cityPageSize,
+            debouncedCitySearchTerm,
+            verificationFilter,
+          ],
+          queryFn: () =>
+            VENUE_SERVICES[activeVenuePath].getCityWiseOverview(
+              effectiveStateForCityView,
+              selectedCityForDetailView,
+              targetPage,
+              cityPageSize,
+              debouncedCitySearchTerm || undefined,
+              verificationFilter,
+            ),
+          staleTime: 2 * 60 * 1000,
+        });
+      }
     });
   }, [
+    activeVenuePath,
     cityPage,
     cityPageSize,
     cityWiseData?.totalPages,
     coworkingCityWiseData?.totalPages,
+    genericVenueCityWiseData?.totalPages,
     currentView,
     debouncedCitySearchTerm,
     effectiveStateForCityView,
@@ -1199,10 +1513,8 @@ export default function MockTechParkDashboard() {
     return (
       <div className="flex flex-col gap-6 p-4">
         <DashboardHeader title={getPageTitle(pathname, segment)} breadcrumbs={generateBreadcrumbs()} />
-        <DashboardControls 
-          segment={segment} 
-          onSegmentChange={setSegment} 
-          isLoading={isLoading} 
+        <DashboardControls
+          isLoading={isLoading}
           selectedState={selectedStateFilter}
           onStateChange={handleStateFilterChange}
         />
@@ -1220,8 +1532,6 @@ export default function MockTechParkDashboard() {
       <DashboardHeader title={title} breadcrumbs={breadcrumbs} />
 
       <DashboardControls
-        segment={segment}
-        onSegmentChange={setSegment}
         isLoading={isLoading}
         selectedState={selectedStateFilter}
         onStateChange={handleStateFilterChange}
@@ -1286,16 +1596,27 @@ export default function MockTechParkDashboard() {
           error={cityStateResolutionError || currentCityError?.message || null}
           paginationInfo={{
             currentPage: cityPage,
-            totalPages: (segment === "techParks" ? cityWiseData : coworkingCityWiseData)?.totalPages || 1,
-            totalItems: (segment === "techParks" ? cityWiseData : coworkingCityWiseData)?.totalItems || 0,
+            totalPages: (
+              segment === "techParks" ? cityWiseData :
+              segment === "coworkingSpaces" ? coworkingCityWiseData :
+              genericVenueCityWiseData
+            )?.totalPages || 1,
+            totalItems: (
+              segment === "techParks" ? cityWiseData :
+              segment === "coworkingSpaces" ? coworkingCityWiseData :
+              genericVenueCityWiseData
+            )?.totalItems || 0,
             pageSize: cityPageSize,
             onPageChange: setCityPage,
           }}
-          isSubmitting={addTechParkMutation.isPending || addCoworkingSpaceMutation.isPending}
+          isSubmitting={addTechParkMutation.isPending || addCoworkingSpaceMutation.isPending || genericAddMutation.isPending}
           isSearchLoading={
-            segment === "techParks"
-              ? isCityFetching && !isCityLoading
-              : isCoworkingCityFetching && !isCoworkingCityLoading
+            segment === "techParks" ? isCityFetching && !isCityLoading :
+            segment === "coworkingSpaces" ? isCoworkingCityFetching && !isCoworkingCityLoading :
+            segment === "malls" ? isMallsCityFetching && !isMallsCityLoading :
+            segment === "hospitals" ? isHospitalsCityFetching && !isHospitalsCityLoading :
+            segment === "stadiums" ? isStadiumsCityFetching && !isStadiumsCityLoading :
+            isAirportsCityFetching && !isAirportsCityLoading
           }
         />
       )}
@@ -1307,7 +1628,7 @@ export default function MockTechParkDashboard() {
         setNewLocation={setNewLocation}
         handleAddLocation={handleEditLocation}
         resetForm={resetForm}
-        isSubmitting={editTechParkMutation.isPending}
+        isSubmitting={editTechParkMutation.isPending || editCoworkingSpaceMutation.isPending || genericUpdateMutation.isPending}
         segment={segment}
         enableExtendedTechParkFields={true}
       />
@@ -1316,7 +1637,7 @@ export default function MockTechParkDashboard() {
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         locationToDelete={locationToDelete}
-        isDeleting={deleteTechParkMutation.isPending}
+        isDeleting={deleteTechParkMutation.isPending || deleteCoworkingSpaceMutation.isPending || genericDeleteMutation.isPending}
         onConfirmDelete={confirmDelete}
       />
     </div>

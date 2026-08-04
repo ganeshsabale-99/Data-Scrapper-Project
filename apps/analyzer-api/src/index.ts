@@ -8,6 +8,7 @@ import {
 import { warmupRateLimitStore, closeRateLimitStore } from "./middleware/security";
 import { parseBooleanEnv } from "./utils/envUtils"; // I'll check if this exists or move it
 import { startNewsScheduler } from "./libs/newsScheduler";
+import { startScrapeScheduler } from "./libs/scrapeScheduler";
 import { ensureRbacBootstrap } from "./modules/rbac/accessControlService";
 import { startTechParkCompanySyncScheduler } from "./libs/techParkCompanySync";
 
@@ -119,6 +120,16 @@ server.listen(PORT, () => {
                 {
                     error: error instanceof Error ? error.message : String(error),
                 },
+                "error",
+            );
+        }
+
+        try {
+            startScrapeScheduler();
+        } catch (error: unknown) {
+            logOperationalEvent(
+                "scrapeScheduler.failed_to_start",
+                { error: error instanceof Error ? error.message : String(error) },
                 "error",
             );
         }

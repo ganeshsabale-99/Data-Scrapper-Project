@@ -10,7 +10,9 @@
     "check-types": "tsc --noEmit",
     "lint": "pnpm run check-types",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
-    "backfill:techpark-details": "tsx scripts/backfill_missing_techpark_details.ts"
+    "backfill:techpark-details": "tsx scripts/backfill_missing_techpark_details.ts",
+    "scrape:coworking": "tsx scripts/scrapeCoworkingSpaces.ts",
+    "scrape:coworking:test": "tsx scripts/scrapeCoworkingSpaces.ts --test"
   },
   "keywords": [],
   "author": "",

@@ -14,16 +14,19 @@ import { coworkingSpacesRouter } from "./routes/coworkingSpacesRouter";
 import { contactLogRouter } from "./routes/contactLogRouter";
 import { fundingNewsRouter } from "./routes/fundingNewsRouter";
 import { startNewsScheduler } from "./libs/newsScheduler";
+import { startScrapeScheduler } from "./libs/scrapeScheduler";
 
 import { mediaRouter } from "./routes/mediaRouter";
 import { rbacRouter } from "./routes/rbacRouter";
 import { exportRouter } from "./routes/exportRouter";
 import { externalTechparksRouter } from "./routes/externalTechparksRouter";
-<<<<<<< HEAD
 import { placesReviewRouter } from "./routes/placesReviewRouter";
-=======
 import { cityAliasRouter } from "./routes/cityAliasRouter";
->>>>>>> 817186e4c4bae91d20437a9298e9db1cd428623d
+import { mallsRouter } from "./routes/mallsRouter";
+import { hospitalsRouter } from "./routes/hospitalsRouter";
+import { stadiumsRouter } from "./routes/stadiumsRouter";
+import { airportsRouter } from "./routes/airportsRouter";
+import { nationalOverviewRouter } from "./routes/nationalOverviewRouter";
 import { requestContextMiddleware } from "./middleware/requestContext";
 import {
   closeRateLimitStore,
@@ -198,11 +201,13 @@ app.use("/funding-news", fundingNewsRouter);
 app.use("/media", authenticateToken, mediaRouter);
 app.use("/rbac", rbacRouter);
 app.use("/export", exportRouter);
-<<<<<<< HEAD
 app.use("/places-reviews", placesReviewRouter);
-=======
 app.use("/city-aliases", cityAliasRouter);
->>>>>>> 817186e4c4bae91d20437a9298e9db1cd428623d
+app.use("/malls", mallsRouter);
+app.use("/hospitals", hospitalsRouter);
+app.use("/stadiums", stadiumsRouter);
+app.use("/airports", airportsRouter);
+app.use("/national-overview", nationalOverviewRouter);
 
 app.use((req: Request, res: Response) => {
   return res.status(404).json({
