@@ -125,7 +125,7 @@ const extractCity = (
     .map((part) => part.trim())
     .filter(Boolean);
 
-  return parts.length >= 2 ? parts[parts.length - 2] : "";
+  return parts.length >= 2 ? parts[parts.length - 2] ?? "" : "";
 };
 
 const sharesEnoughTokens = (candidate: string, reference: string): boolean => {
@@ -231,7 +231,7 @@ export async function discoverTechParkCompanies(
   }
 
   const discoveredCompanies = await Promise.all(
-    Array.from(candidateMap.values()).map(async (candidate) => {
+    Array.from(candidateMap.values()).map(async (candidate): Promise<DiscoveredTechParkCompany | null> => {
       try {
         const detailsResponse = await axios.get(GOOGLE_PLACES_DETAILS_URL, {
           params: {

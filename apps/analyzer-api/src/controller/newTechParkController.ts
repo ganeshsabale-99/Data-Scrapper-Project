@@ -873,7 +873,7 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
     );
     const orderedPaginatedTechParks = paginatedTechParkIds
       .map((techParkId) => paginatedTechParkMap.get(techParkId))
-      .filter(Boolean);
+      .filter((tp): tp is NonNullable<typeof tp> => Boolean(tp));
 
     const totalTechParks = totalItems;
     const statusCounts: Record<string, number> = {};

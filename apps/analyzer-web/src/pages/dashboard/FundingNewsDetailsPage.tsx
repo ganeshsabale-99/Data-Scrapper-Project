@@ -114,7 +114,7 @@ export default function FundingNewsDetailsPage() {
                 detailsData.description
             ].filter(Boolean).join(' ');
 
-            let loc = extractLocation(contentToSearch);
+            const loc = extractLocation(contentToSearch);
             
             // Detect Presence Type
             let type = null;

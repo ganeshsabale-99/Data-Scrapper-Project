@@ -298,11 +298,6 @@ export const runTechParkCompanySync = async () => {
   }
 
   const techParks = await prismaInstance.newTechPark.findMany({
-    where: {
-      place_id: {
-        not: null,
-      },
-    },
     select: {
       id: true,
       place_id: true,
