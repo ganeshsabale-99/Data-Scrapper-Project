@@ -8,6 +8,9 @@ import { AppRuntimeErrorBoundary } from "./components/AppRuntimeErrorBoundary";
 import { GupioOverlayLoader } from "./components/ui/gupio-loader";
 import { useGlobalApiLoader } from "./hooks/use-global-api-loader";
 import { preloadMockTechParkDashboard } from "./lib/dashboard-preload";
+import { refreshUserAccess } from "./lib/auth";
+
+const USER_ACCESS_REFRESH_INTERVAL_MS = 3 * 60 * 1000;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -43,6 +46,19 @@ export function App() {
 
     return () => clearTimeout(timer);
   }, [splashDelayMs]);
+
+  useEffect(() => {
+    // Keeps a logged-in user's cached role/permissions in sync with RBAC changes
+    // an admin makes elsewhere, without requiring this user to log out and back in.
+    void refreshUserAccess();
+    const interval = setInterval(() => void refreshUserAccess(), USER_ACCESS_REFRESH_INTERVAL_MS);
+    const onFocus = () => void refreshUserAccess();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
 
   if (isLoading) {
     return <SplashScreen />;

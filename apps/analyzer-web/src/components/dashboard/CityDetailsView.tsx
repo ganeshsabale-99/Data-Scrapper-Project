@@ -8,6 +8,7 @@ import { LoadingSpinner } from "./LoadingSpinner";
 import { Card, CardContent } from "@/components/ui/card";
 import { ErrorDisplay } from "./ErrorDisplay";
 import { ArrowLeft } from "lucide-react";
+import { getSegmentLabel, getSegmentSingularLabel } from "./constants";
 import type { DashboardStats, ChartDistribution, Segment, NewLocationData } from "./types";
 import type { VerifiedFilter } from "@/services/techParkService";
 import { useRoleAccess } from "@/hooks/use-role-access";
@@ -196,7 +197,7 @@ export function CityDetailsView({
 
         <div className="flex justify-end mb-2">
           <Button size="sm" onClick={() => onAddDialogOpenChange(true)}>
-            {segment === "techParks" ? "Add Tech Park" : "Add Coworking Space"}
+            {`Add ${getSegmentSingularLabel(segment)}`}
           </Button>
         </div>
 
@@ -211,10 +212,7 @@ export function CityDetailsView({
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">No data available</h3>
                 <p className="text-muted-foreground">
-                  {segment === "techParks"
-                    ? "No tech parks found in this city."
-                    : "No coworking spaces found in this city."
-                  }
+                  No {getSegmentLabel(segment).toLowerCase()} found in this city.
                 </p>
               </div>
             </div>
@@ -254,7 +252,7 @@ export function CityDetailsView({
         </h2>
         <div className="flex w-full sm:w-auto gap-2">
           <Button size="sm" onClick={() => onAddDialogOpenChange(true)} className="w-full sm:w-auto">
-            {segment === "techParks" ? "Add Tech Park" : "Add Coworking Space"}
+            {`Add ${getSegmentSingularLabel(segment)}`}
           </Button>
         </div>
       </div>
@@ -285,7 +283,7 @@ export function CityDetailsView({
         isLoading={isLoading}
         isSearchLoading={isSearchLoading}
         error={null}
-        nameLabel={segment === "techParks" ? "Tech Park" : "Coworking Space"}
+        nameLabel={getSegmentSingularLabel(segment)}
         locationLabel="Address"
         onViewDetails={onViewDetails}
         onEdit={onEdit}

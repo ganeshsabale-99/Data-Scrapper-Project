@@ -16,11 +16,9 @@ import {
     Building2,
     FileText,
     Sparkles,
-    MapPin,
-    Info
+    MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FundingNewsService, type CompanyDetails, type FundingNews } from '@/services/fundingNewsService';
 import { toast } from 'sonner';
@@ -63,17 +61,23 @@ export default function FundingNewsDetailsPage() {
             'B2B', 'B2C', 'Direct', 'Series', 'Funding', 'Seed'
         ];
 
-        for (const kw of keywords) {
-            // Regex to capture capitalized place names (e.g., "San Francisco", "India", "New York, USA")
-            // It looks for one or more capitalized words, potentially separated by commas or spaces.
-            const regex = new RegExp(`${kw}\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)*(?:,\\s+[A-Z][a-z]+)*)`, 'g');
-            const matches = [...text.matchAll(regex)];
+        // Regex to capture capitalized place names (e.g., "San Francisco", "India", "New York, USA")
+        // It looks for one or more capitalized words, potentially separated by commas or spaces.
+        const locationPattern = /^\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:,\s+[A-Z][a-z]+)*)/;
+        const lowerText = text.toLowerCase();
 
-            for (const match of matches) {
+        for (const kw of keywords) {
+            // Find the keyword case-insensitively (e.g. "Headquartered in" at a sentence
+            // start), but keep the location capture itself case-sensitive so it only
+            // matches actual capitalized place names, not arbitrary lowercase words.
+            let searchFrom = 0;
+            let idx = lowerText.indexOf(kw, searchFrom);
+            while (idx !== -1) {
+                const match = text.slice(idx + kw.length).match(locationPattern);
                 if (match && match[1]) {
                     const loc = match[1].trim();
-                    
-                    // Validation: 
+
+                    // Validation:
                     // 1. More than 2 chars
                     // 2. Not in blacklist
                     // 3. Not a generic stop word
@@ -84,6 +88,8 @@ export default function FundingNewsDetailsPage() {
                         return loc;
                     }
                 }
+                searchFrom = idx + kw.length;
+                idx = lowerText.indexOf(kw, searchFrom);
             }
         }
         return null;
@@ -109,12 +115,13 @@ export default function FundingNewsDetailsPage() {
             // Presence Extraction
             setPresenceLoading(true);
             const contentToSearch = [
-                newsData.full_content,
                 newsData.content_summary,
                 detailsData.description
             ].filter(Boolean).join(' ');
 
-            const loc = extractLocation(contentToSearch);
+            // Prefer the AI-extracted location already stored on the article; only
+            // fall back to regex-guessing from the article text if that's empty.
+            const loc = newsData.location || extractLocation(contentToSearch);
             
             // Detect Presence Type
             let type = null;

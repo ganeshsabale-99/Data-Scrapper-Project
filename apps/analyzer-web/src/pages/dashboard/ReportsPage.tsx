@@ -8,41 +8,95 @@ import {
     useOverviewData, 
     useStateWiseData 
 } from "@/hooks/use-tech-park-queries";
-import { 
-    useCoworkingSpaceOverviewData, 
-    useCoworkingSpaceStateWiseData 
+import {
+    useCoworkingSpaceOverviewData,
+    useCoworkingSpaceStateWiseData
 } from "@/hooks/use-coworking-space-queries";
+import {
+    useMallOverviewData,
+    useMallStateWiseData,
+    useHospitalOverviewData,
+    useHospitalStateWiseData,
+    useStadiumOverviewData,
+    useStadiumStateWiseData,
+    useAirportOverviewData,
+    useAirportStateWiseData,
+} from "@/hooks/use-venue-queries";
 import { toast } from "sonner";
 import { getAuthToken } from "@/lib/token";
 import { axiosInstance } from "@/config/axios";
 
+const ENTITY_TYPES = ["all", "techPark", "coworkingSpace", "mall", "hospital", "stadium", "airport"] as const;
+type EntityType = typeof ENTITY_TYPES[number];
+
+const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
+    all: "All Properties",
+    techPark: "Tech Parks",
+    coworkingSpace: "Coworking Spaces",
+    mall: "Malls",
+    hospital: "Hospitals",
+    stadium: "Stadiums",
+    airport: "Airports",
+};
+
 export default function ReportsPage() {
-    const [entityType, setEntityType] = useState<"all" | "techPark" | "coworkingSpace">("all");
+    const [entityType, setEntityType] = useState<EntityType>("all");
     const [status, setStatus] = useState<"all" | "verified" | "unverified">("all");
     const [selectedState, setSelectedState] = useState<string>("all");
     const [selectedCity, setSelectedCity] = useState<string>("all");
 
+    const stateParam = selectedState === "all" ? "" : selectedState;
     const { data: tpOverview } = useOverviewData();
-    const { data: tpStateData } = useStateWiseData(selectedState === "all" ? "" : selectedState);
+    const { data: tpStateData } = useStateWiseData(stateParam);
     const { data: csOverview } = useCoworkingSpaceOverviewData();
-    const { data: csStateData } = useCoworkingSpaceStateWiseData(selectedState === "all" ? "" : selectedState);
+    const { data: csStateData } = useCoworkingSpaceStateWiseData(stateParam);
+    const { data: mallOverview } = useMallOverviewData();
+    const { data: mallStateData } = useMallStateWiseData(stateParam);
+    const { data: hospitalOverview } = useHospitalOverviewData();
+    const { data: hospitalStateData } = useHospitalStateWiseData(stateParam);
+    const { data: stadiumOverview } = useStadiumOverviewData();
+    const { data: stadiumStateData } = useStadiumStateWiseData(stateParam);
+    const { data: airportOverview } = useAirportOverviewData();
+    const { data: airportStateData } = useAirportStateWiseData(stateParam);
+
+    const genericOverviews = {
+        mall: mallOverview,
+        hospital: hospitalOverview,
+        stadium: stadiumOverview,
+        airport: airportOverview,
+    } as const;
+    const genericStateData = {
+        mall: mallStateData,
+        hospital: hospitalStateData,
+        stadium: stadiumStateData,
+        airport: airportStateData,
+    } as const;
+    const genericKeys = ["mall", "hospital", "stadium", "airport"] as const;
 
     // Merge states for the dropdown
     const allStates = (() => {
         const statesMap = new Map<string, number>();
-        
+
         if (entityType === "all" || entityType === "techPark") {
             tpOverview?.stateData?.forEach(s => {
                 statesMap.set(s.state, (statesMap.get(s.state) || 0) + s.count);
             });
         }
-        
+
         if (entityType === "all" || entityType === "coworkingSpace") {
             csOverview?.stateData?.forEach(s => {
                 statesMap.set(s.state, (statesMap.get(s.state) || 0) + s.count);
             });
         }
-        
+
+        for (const key of genericKeys) {
+            if (entityType === "all" || entityType === key) {
+                genericOverviews[key]?.stateData?.forEach(s => {
+                    statesMap.set(s.state, (statesMap.get(s.state) || 0) + s.count);
+                });
+            }
+        }
+
         return Array.from(statesMap.entries())
             .map(([state, count]) => ({ state, count }))
             .sort((a, b) => a.state.localeCompare(b.state));
@@ -51,19 +105,27 @@ export default function ReportsPage() {
     // Merge cities for the selected state
     const allCities = (() => {
         const citiesMap = new Map<string, number>();
-        
+
         if (entityType === "all" || entityType === "techPark") {
             tpStateData?.cityData?.forEach(c => {
                 citiesMap.set(c.city, (citiesMap.get(c.city) || 0) + c.count);
             });
         }
-        
+
         if (entityType === "all" || entityType === "coworkingSpace") {
             csStateData?.cityData?.forEach(c => {
                 citiesMap.set(c.city, (citiesMap.get(c.city) || 0) + c.count);
             });
         }
-        
+
+        for (const key of genericKeys) {
+            if (entityType === "all" || entityType === key) {
+                genericStateData[key]?.cityData?.forEach(c => {
+                    citiesMap.set(c.city, (citiesMap.get(c.city) || 0) + c.count);
+                });
+            }
+        }
+
         return Array.from(citiesMap.entries())
             .map(([city, count]) => ({ city, count }))
             .sort((a, b) => a.city.localeCompare(b.city));
@@ -71,33 +133,36 @@ export default function ReportsPage() {
 
     // Calculate total record count preview
     const recordCount = (() => {
-        let count = 0;
-        
         const getTpCount = () => {
             if (selectedState === "all") return tpOverview?.totalTechParks || 0;
             if (selectedCity === "all") return tpStateData?.totalTechParks || 0;
             return tpStateData?.cityData?.find(c => c.city === selectedCity)?.count || 0;
         };
-        
+
         const getCsCount = () => {
             if (selectedState === "all") return csOverview?.totalCoworkingSpaces || 0;
             if (selectedCity === "all") return csStateData?.totalCoworkingSpaces || 0;
             return csStateData?.cityData?.find(c => c.city === selectedCity)?.count || 0;
         };
 
+        const getGenericCount = (key: typeof genericKeys[number]) => {
+            const overview = genericOverviews[key];
+            const stateData = genericStateData[key];
+            if (selectedState === "all") return overview?.total || 0;
+            if (selectedCity === "all") return stateData?.total || 0;
+            return stateData?.cityData?.find(c => c.city === selectedCity)?.count || 0;
+        };
+
         if (entityType === "all") {
-            count = getTpCount() + getCsCount();
-        } else if (entityType === "techPark") {
-            count = getTpCount();
-        } else if (entityType === "coworkingSpace") {
-            count = getCsCount();
+            return getTpCount() + getCsCount() + genericKeys.reduce((sum, key) => sum + getGenericCount(key), 0);
         }
-        
-        return count;
+        if (entityType === "techPark") return getTpCount();
+        if (entityType === "coworkingSpace") return getCsCount();
+        return getGenericCount(entityType);
     })();
 
-    const isEntityType = (value: string): value is "all" | "techPark" | "coworkingSpace" =>
-        value === "all" || value === "techPark" || value === "coworkingSpace";
+    const isEntityType = (value: string): value is EntityType =>
+        (ENTITY_TYPES as readonly string[]).includes(value);
 
     const isStatus = (value: string): value is "all" | "verified" | "unverified" =>
         value === "all" || value === "verified" || value === "unverified";
@@ -155,7 +220,7 @@ export default function ReportsPage() {
                         Reports
                     </h1>
                     <p className="text-muted-foreground mt-1">
-                        Generate and download reports for Tech Parks and Coworking Spaces.
+                        Generate and download reports across all property types.
                     </p>
                 </div>
             </div>
@@ -179,9 +244,11 @@ export default function ReportsPage() {
                                     <SelectValue placeholder="Select type" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All Properties</SelectItem>
-                                    <SelectItem value="techPark">Tech Parks</SelectItem>
-                                    <SelectItem value="coworkingSpace">Coworking Spaces</SelectItem>
+                                    {ENTITY_TYPES.map((type) => (
+                                        <SelectItem key={type} value={type}>
+                                            {ENTITY_TYPE_LABELS[type]}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

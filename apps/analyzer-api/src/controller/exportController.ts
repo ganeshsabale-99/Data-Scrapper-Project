@@ -4,9 +4,16 @@ import ExcelJS from "exceljs";
 import { getQueryString } from "../utils/queryUtils";
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
 
+const GENERIC_VENUE_MODELS: Record<string, { model: any; label: string; singularLabel: string }> = {
+    mall: { model: prismaInstance.mall, label: 'Malls', singularLabel: 'Mall' },
+    hospital: { model: prismaInstance.hospital, label: 'Hospitals', singularLabel: 'Hospital' },
+    stadium: { model: prismaInstance.stadium, label: 'Stadiums', singularLabel: 'Stadium' },
+    airport: { model: prismaInstance.airport, label: 'Airports', singularLabel: 'Airport' },
+};
+
 export const exportData = async (req: Request, res: Response) => {
     try {
-        const entityType = getQueryString(req.query.entityType) || 'all'; // techPark, coworkingSpace, all
+        const entityType = getQueryString(req.query.entityType) || 'all'; // techPark, coworkingSpace, mall, hospital, stadium, airport, all
         const status = getQueryString(req.query.status) || 'all'; // verified, unverified, all
         const state = getQueryString(req.query.state);
         const city = getQueryString(req.query.city);
@@ -28,6 +35,14 @@ export const exportData = async (req: Request, res: Response) => {
 
             if (entityType === 'coworkingSpace' || entityType === 'all') {
                 await addCoworkingSheet(workbook, status, state, city);
+            }
+
+            if (entityType in GENERIC_VENUE_MODELS) {
+                await addGenericVenueSheet(workbook, entityType, status, state, city);
+            } else if (entityType === 'all') {
+                for (const key of Object.keys(GENERIC_VENUE_MODELS)) {
+                    await addGenericVenueSheet(workbook, key, status, state, city);
+                }
             }
         }
 
@@ -206,6 +221,71 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
     sheet.getRow(1).font = { bold: true };
 }
 
+async function addGenericVenueSheet(workbook: ExcelJS.Workbook, entityKey: string, statusFilter: string, state?: string, city?: string) {
+    const entry = GENERIC_VENUE_MODELS[entityKey];
+    if (!entry) return;
+    const { model, label } = entry;
+    const sheet = workbook.addWorksheet(label);
+
+    const where: any = { is_active: true };
+    if (statusFilter === 'verified') where.isVerified = true;
+    if (statusFilter === 'unverified') where.isVerified = false;
+    if (state) where.state = { equals: state, mode: 'insensitive' };
+    if (city) where.city = { equals: city, mode: 'insensitive' };
+
+    const rows = await model.findMany({ where, orderBy: { createdAt: 'desc' } });
+
+    sheet.columns = [
+        { header: 'ID', key: 'id', width: 25 },
+        { header: 'Place ID', key: 'place_id', width: 20 },
+        { header: 'Name', key: 'name', width: 30 },
+        { header: 'Address', key: 'address', width: 35 },
+        { header: 'Locality', key: 'locality', width: 20 },
+        { header: 'District', key: 'district', width: 15 },
+        { header: 'City', key: 'city', width: 15 },
+        { header: 'State', key: 'state', width: 15 },
+        { header: 'Pincode', key: 'pincode', width: 10 },
+        { header: 'Country', key: 'country', width: 15 },
+        { header: 'Latitude', key: 'lat', width: 15 },
+        { header: 'Longitude', key: 'lng', width: 15 },
+        { header: 'Map URL', key: 'map_url', width: 25 },
+        { header: 'Website', key: 'website', width: 25 },
+        { header: 'Reception Phone', key: 'reception_phone', width: 15 },
+        { header: 'International Phone', key: 'international_phone', width: 20 },
+        { header: 'Email', key: 'generic_email', width: 25 },
+        { header: 'Rating', key: 'rating', width: 10 },
+        { header: 'Total Ratings', key: 'total_ratings', width: 15 },
+        { header: 'Business Status', key: 'business_status', width: 15 },
+        { header: 'Parking Score', key: 'parking_score', width: 15 },
+        { header: 'Status', key: 'status', width: 15 },
+        { header: 'SPOC Name', key: 'spoc_name', width: 20 },
+        { header: 'SPOC Phone', key: 'spoc_phone', width: 15 },
+        { header: 'Challenges', key: 'challenges', width: 25 },
+        { header: 'Internal Notes', key: 'notes_internal', width: 25 },
+        { header: 'Verified', key: 'isVerified', width: 10 },
+        { header: 'Verified At', key: 'verifiedAt', width: 20 },
+        { header: 'First Seen At', key: 'first_seen_at', width: 20 },
+        { header: 'Last Seen At', key: 'last_seen_at', width: 20 },
+        { header: 'Created At', key: 'createdAt', width: 20 },
+        { header: 'Updated At', key: 'updatedAt', width: 20 },
+    ];
+
+    rows.forEach((row: any) => {
+        sheet.addRow({
+            ...row,
+            is_active: row.is_active ? 'Yes' : 'No',
+            isVerified: row.isVerified ? 'Yes' : 'No',
+            createdAt: row.createdAt ? row.createdAt.toISOString() : '',
+            updatedAt: row.updatedAt ? row.updatedAt.toISOString() : '',
+            first_seen_at: row.first_seen_at ? row.first_seen_at.toISOString() : '',
+            last_seen_at: row.last_seen_at ? row.last_seen_at.toISOString() : '',
+            verifiedAt: row.verifiedAt ? row.verifiedAt.toISOString() : '',
+        });
+    });
+
+    sheet.getRow(1).font = { bold: true };
+}
+
 async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string) {
     const sheet = workbook.addWorksheet('All Properties');
 
@@ -274,6 +354,33 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
         });
     });
 
+    // Fetch and append the 4 generic venue types (Malls/Hospitals/Stadiums/Airports)
+    for (const { model, singularLabel } of Object.values(GENERIC_VENUE_MODELS)) {
+        const venueWhere: any = { is_active: true };
+        if (statusFilter === 'verified') venueWhere.isVerified = true;
+        if (statusFilter === 'unverified') venueWhere.isVerified = false;
+        if (state) venueWhere.state = { equals: state, mode: 'insensitive' };
+        if (city) venueWhere.city = { equals: city, mode: 'insensitive' };
+        const venues = await model.findMany({ where: venueWhere });
+
+        venues.forEach((venue: any) => {
+            sheet.addRow({
+                propertyType: singularLabel,
+                id: venue.id,
+                name: venue.name,
+                city: venue.city,
+                state: venue.state,
+                status: venue.status,
+                isVerified: venue.isVerified ? 'Yes' : 'No',
+                operator_pm: venue.spoc_name,
+                email: venue.generic_email,
+                phone: venue.spoc_phone || venue.reception_phone,
+                address: venue.address,
+                createdAt: venue.createdAt ? venue.createdAt.toISOString() : '',
+            });
+        });
+    }
+
     sheet.getRow(1).font = { bold: true };
 }
 
@@ -296,7 +403,12 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
         </style>
     </head>
     <body>
-        <h1>${entityType === 'all' ? 'All Properties' : entityType === 'techPark' ? 'Tech Parks' : 'Coworking Spaces'} Report</h1>
+        <h1>${
+            entityType === 'all' ? 'All Properties' :
+            entityType === 'techPark' ? 'Tech Parks' :
+            entityType === 'coworkingSpace' ? 'Coworking Spaces' :
+            GENERIC_VENUE_MODELS[entityType]?.label ?? entityType
+        } Report</h1>
         <p class="meta"><strong>Status:</strong> ${statusFilter} | <strong>State:</strong> ${state || 'All'} | <strong>City:</strong> ${city || 'All'}</p>
         <table>
             <thead>
@@ -359,6 +471,34 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
                     <td>${space.city || '-'}, ${space.state || '-'}</td>
                     <td>${space.status || '-'}</td>
                     <td>${space.isVerified ? 'Yes' : 'No'}</td>
+                    <td>${operator}</td>
+                    <td>${contact}</td>
+                </tr>
+            `;
+        });
+    }
+
+    const genericKeys = entityType === 'all' ? Object.keys(GENERIC_VENUE_MODELS) : (entityType in GENERIC_VENUE_MODELS ? [entityType] : []);
+    for (const key of genericKeys) {
+        const entry = GENERIC_VENUE_MODELS[key];
+        if (!entry) continue;
+        const { model, singularLabel } = entry;
+        const venueWhere: any = { is_active: true };
+        if (statusFilter === 'verified') venueWhere.isVerified = true;
+        if (statusFilter === 'unverified') venueWhere.isVerified = false;
+        if (state) venueWhere.state = { equals: state, mode: 'insensitive' };
+        if (city) venueWhere.city = { equals: city, mode: 'insensitive' };
+        const venues = await model.findMany({ where: venueWhere });
+        venues.forEach((venue: any) => {
+            const contact = venue.spoc_phone || venue.reception_phone || venue.generic_email || '-';
+            const operator = venue.spoc_name || '-';
+            rows += `
+                <tr>
+                    <td>${singularLabel}</td>
+                    <td>${venue.name}</td>
+                    <td>${venue.city || '-'}, ${venue.state || '-'}</td>
+                    <td>${venue.status || '-'}</td>
+                    <td>${venue.isVerified ? 'Yes' : 'No'}</td>
                     <td>${operator}</td>
                     <td>${contact}</td>
                 </tr>

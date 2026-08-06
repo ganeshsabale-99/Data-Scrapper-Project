@@ -209,7 +209,7 @@ export default function TechParkDetailsPage() {
   const [companies, setCompanies] = useState<TechParkCompanyRecord[]>([]);
   const [stats, setStats] = useState<TechParkStats>({ totalCompanies: 0, contactedCompanies: 0, positiveResponses: 0, responseRate: 0 });
   const [statusBreakdown, setStatusBreakdown] = useState<{ NOT_CONTACTED: number; CONTACTED: number; INTERESTED: number; MEETING_SCHEDULED: number; PROPOSAL_SENT: number; IN_PROGRESS: number; CLOSED: number }>({ NOT_CONTACTED: 0, CONTACTED: 0, INTERESTED: 0, MEETING_SCHEDULED: 0, PROPOSAL_SENT: 0, IN_PROGRESS: 0, CLOSED: 0 });
-  const [loading, setLoading] = useState<boolean>(false);
+  const [, setLoading] = useState<boolean>(false);
   const [companiesLoading, setCompaniesLoading] = useState<boolean>(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);

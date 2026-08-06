@@ -29,7 +29,8 @@ import {
   getSelectedCityForDetailView,
   getBasePath,
   getPageTitle,
-  getTabLabel
+  getTabLabel,
+  withTabParam
 } from "./utils";
 
 import {
@@ -142,10 +143,21 @@ export default function MockTechParkDashboard() {
     [],
   );
   const canApproveTechParkReview = normalizedPermissionSet.has("SYSTEM.SUPER_ADMIN");
-  const canSubmitTechParkReview = hasPermission("TECHPARKS.VERIFY");
 
   const [searchParams] = useSearchParams();
   const segment = (searchParams.get("tab") as Segment) || "techParks";
+
+  // Coworking has no dedicated VERIFY permission today, so it shares TECHPARKS.VERIFY
+  // (legacy behavior). Malls/Hospitals/Stadiums/Airports each have their own.
+  const VERIFY_PERMISSION_BY_SEGMENT: Record<Segment, string> = {
+    techParks: "TECHPARKS.VERIFY",
+    coworkingSpaces: "TECHPARKS.VERIFY",
+    malls: "MALLS.VERIFY",
+    hospitals: "HOSPITALS.VERIFY",
+    stadiums: "STADIUMS.VERIFY",
+    airports: "AIRPORTS.VERIFY",
+  };
+  const canSubmitTechParkReview = hasPermission(VERIFY_PERMISSION_BY_SEGMENT[segment]);
 
   const [cityPage, setCityPage] = useState(1);
   const [verificationFilter, setVerificationFilter] = useState<VerifiedFilter>("ALL");
@@ -446,9 +458,9 @@ export default function MockTechParkDashboard() {
   const handleStateFilterChange = (newState: string) => {
     const basePath = getBasePath(pathname);
     if (newState === "ALL") {
-      navigate(basePath);
+      navigate(withTabParam(basePath, segment));
     } else {
-      navigate(`${basePath}/${encodeURIComponent(newState)}`);
+      navigate(withTabParam(`${basePath}/${encodeURIComponent(newState)}`, segment));
     }
   };
 
@@ -931,12 +943,12 @@ export default function MockTechParkDashboard() {
         staleTime: 5 * 60 * 1000,
       });
     }
-    navigate(`${basePath}/${encodeURIComponent(state)}`);
+    navigate(withTabParam(`${basePath}/${encodeURIComponent(state)}`, segment));
   };
 
   const handleBackToStates = () => {
     const basePath = getBasePath(pathname);
-    navigate(basePath);
+    navigate(withTabParam(basePath, segment));
   };
 
   const handleCityClick = (city: string) => {
@@ -985,14 +997,14 @@ export default function MockTechParkDashboard() {
           staleTime: 2 * 60 * 1000,
         });
       }
-      navigate(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}/${encodeURIComponent(city)}`);
+      navigate(withTabParam(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}/${encodeURIComponent(city)}`, segment));
     }
   };
 
   const handleBackToCities = () => {
     if (!effectiveStateForCityView) return;
     const basePath = getBasePath(pathname);
-    navigate(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}`);
+    navigate(withTabParam(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}`, segment));
   };
 
 
@@ -1007,12 +1019,16 @@ export default function MockTechParkDashboard() {
       return;
     }
 
-    // Generic venue types don't have a separate detail page — no-op for now
-    if (isGenericVenueSegment) return;
+    // Generic venue types (malls/hospitals/stadiums/airports) don't have a
+    // dedicated detail page yet — open the edit dialog so the full record is visible.
+    if (isGenericVenueSegment) {
+      void handleEdit(row);
+      return;
+    }
 
     const basePath = getBasePath(pathname);
     navigate(
-      `${basePath}/${encodeURIComponent(effectiveStateForCityView)}/${encodeURIComponent(selectedCityForDetailView)}/${row.id}`
+      withTabParam(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}/${encodeURIComponent(selectedCityForDetailView)}/${row.id}`, segment)
     );
   };
 
@@ -1021,21 +1037,21 @@ export default function MockTechParkDashboard() {
     const tabLabel = getTabLabel(pathname, segment);
 
     const breadcrumbs: BreadcrumbItem[] = [
-      { label: tabLabel, path: basePath, active: currentView === "states" }
+      { label: tabLabel, path: withTabParam(basePath, segment), active: currentView === "states" }
     ];
 
     if (effectiveStateForCityView && currentView === "state-details") {
       breadcrumbs.push({
         label: effectiveStateForCityView,
-        path: `${basePath}/${encodeURIComponent(effectiveStateForCityView)}`,
+        path: withTabParam(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}`, segment),
         active: currentView === "state-details"
       });
     }
 
     if (selectedCityForDetailView && currentView === "city-details") {
       const cityPath = effectiveStateForCityView
-        ? `${basePath}/${encodeURIComponent(effectiveStateForCityView)}/${encodeURIComponent(selectedCityForDetailView)}`
-        : basePath;
+        ? withTabParam(`${basePath}/${encodeURIComponent(effectiveStateForCityView)}/${encodeURIComponent(selectedCityForDetailView)}`, segment)
+        : withTabParam(basePath, segment);
       breadcrumbs.push({
         label: selectedCityForDetailView,
         path: cityPath,

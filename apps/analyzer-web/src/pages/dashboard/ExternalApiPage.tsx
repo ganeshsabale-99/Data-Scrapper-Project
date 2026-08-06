@@ -23,6 +23,16 @@ import { Plus, Key, XCircle, Copy, CheckCircle2, ChevronDown, ChevronUp, Trash2 
 import { toast } from "sonner";
 import { axiosInstance } from "@/config/axios";
 
+type ApiErrorShape = {
+    response?: { data?: { message?: string; error?: string } };
+    message?: string;
+};
+
+const readApiErrorMessage = (error: unknown, fallback: string): string => {
+    const e = error as ApiErrorShape;
+    return e?.response?.data?.message || e?.response?.data?.error || e?.message || fallback;
+};
+
 interface ApiKey {
     id: string;
     keyId: string;
@@ -57,10 +67,15 @@ const ExternalApiPage = () => {
     const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
 
     const AVAILABLE_SCOPES = [
-        { id: "techpark:national:read", label: "Read National Data" },
+        { id: "techpark:national:read", label: "Read Tech Parks" },
         { id: "techpark:national:write", label: "Write National Data" },
         { id: "techpark:state:read", label: "Read State Data" },
         { id: "techpark:city:read", label: "Read City Data" },
+        { id: "coworking:national:read", label: "Read Coworking Spaces" },
+        { id: "mall:national:read", label: "Read Malls" },
+        { id: "hospital:national:read", label: "Read Hospitals" },
+        { id: "stadium:national:read", label: "Read Stadiums" },
+        { id: "airport:national:read", label: "Read Airports" },
     ];
 
     useEffect(() => {
@@ -78,7 +93,7 @@ const ExternalApiPage = () => {
                 toast.error(res.message || "Failed to load clients");
             }
         } catch (error) {
-            toast.error("Error connecting to server");
+            toast.error(readApiErrorMessage(error, "Error connecting to server"));
         } finally {
             setLoading(false);
         }
@@ -98,7 +113,7 @@ const ExternalApiPage = () => {
                 toast.error(res.message);
             }
         } catch (error) {
-            toast.error("Error creating client");
+            toast.error(readApiErrorMessage(error, "Error creating client"));
         }
     };
 
@@ -116,7 +131,7 @@ const ExternalApiPage = () => {
                 toast.error(res.message);
             }
         } catch (error) {
-            toast.error("Error deleting partner");
+            toast.error(readApiErrorMessage(error, "Error deleting partner"));
         }
     };
 
@@ -136,7 +151,7 @@ const ExternalApiPage = () => {
                 toast.error(res.message);
             }
         } catch (error) {
-            toast.error("Error issuing key");
+            toast.error(readApiErrorMessage(error, "Error issuing key"));
         }
     };
 
@@ -159,7 +174,7 @@ const ExternalApiPage = () => {
                 toast.error(res.message);
             }
         } catch (error) {
-            toast.error("Error revoking key");
+            toast.error(readApiErrorMessage(error, "Error revoking key"));
         }
     };
 

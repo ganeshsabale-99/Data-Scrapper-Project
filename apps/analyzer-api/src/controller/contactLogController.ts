@@ -10,7 +10,7 @@ import {
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
 import { calculateDistance } from "../utils/verificationUtils";
 
-const calculateLocationTrust = (
+export const calculateLocationTrust = (
     expectedLat: number | null | undefined,
     expectedLng: number | null | undefined,
     actualLat: number | null | undefined,
@@ -34,6 +34,10 @@ const hasContactLogScopeAccess = (
         coworkingCompany?: { coworkingSpace?: { state?: string | null; city?: string | null } | null } | null;
         newTechPark?: { state?: string | null; city?: string | null } | null;
         coworkingSpace?: { state?: string | null; city?: string | null } | null;
+        mall?: { state?: string | null; city?: string | null } | null;
+        hospital?: { state?: string | null; city?: string | null } | null;
+        stadium?: { state?: string | null; city?: string | null } | null;
+        airport?: { state?: string | null; city?: string | null } | null;
     },
 ) => {
     if (scope.denyAll) return false;
@@ -49,6 +53,12 @@ const hasContactLogScopeAccess = (
     const coworkingCity = entry.coworkingCompany?.coworkingSpace?.city ?? entry.coworkingSpace?.city ?? null;
     if ((entry.coworkingCompany || entry.coworkingSpace) && canAccessStateCity(scope, coworkingState, coworkingCity)) {
         return true;
+    }
+
+    for (const venue of [entry.mall, entry.hospital, entry.stadium, entry.airport]) {
+        if (venue && canAccessStateCity(scope, venue.state, venue.city)) {
+            return true;
+        }
     }
 
     return false;
@@ -278,7 +288,11 @@ export const updateContactLog = async (req: Request, res: Response) => {
                         state: true,
                         city: true,
                     }
-                }
+                },
+                mall: { select: { id: true, status: true, state: true, city: true } },
+                hospital: { select: { id: true, status: true, state: true, city: true } },
+                stadium: { select: { id: true, status: true, state: true, city: true } },
+                airport: { select: { id: true, status: true, state: true, city: true } },
             }
         });
 
@@ -339,6 +353,22 @@ export const updateContactLog = async (req: Request, res: Response) => {
                 });
             }
 
+            if (existingLog.mall?.status !== status && existingLog.mallId) {
+                await tx.mall.update({ where: { id: existingLog.mallId }, data: { status: status ?? undefined } });
+            }
+
+            if (existingLog.hospital?.status !== status && existingLog.hospitalId) {
+                await tx.hospital.update({ where: { id: existingLog.hospitalId }, data: { status: status ?? undefined } });
+            }
+
+            if (existingLog.stadium?.status !== status && existingLog.stadiumId) {
+                await tx.stadium.update({ where: { id: existingLog.stadiumId }, data: { status: status ?? undefined } });
+            }
+
+            if (existingLog.airport?.status !== status && existingLog.airportId) {
+                await tx.airport.update({ where: { id: existingLog.airportId }, data: { status: status ?? undefined } });
+            }
+
             return nextLog;
         });
 
@@ -387,7 +417,11 @@ export const deleteContactLog = async (req: Request, res: Response) => {
                 },
                 coworkingSpace: {
                     select: { state: true, city: true }
-                }
+                },
+                mall: { select: { state: true, city: true } },
+                hospital: { select: { state: true, city: true } },
+                stadium: { select: { state: true, city: true } },
+                airport: { select: { state: true, city: true } },
             },
         });
 
@@ -478,7 +512,11 @@ export const getContactLogById = async (req: Request, res: Response) => {
                         state: true,
                         status: true,
                     }
-                }
+                },
+                mall: { select: { name: true, city: true, state: true, status: true } },
+                hospital: { select: { name: true, city: true, state: true, status: true } },
+                stadium: { select: { name: true, city: true, state: true, status: true } },
+                airport: { select: { name: true, city: true, state: true, status: true } },
             }
         });
 

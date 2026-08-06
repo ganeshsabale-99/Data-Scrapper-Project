@@ -28,12 +28,23 @@ export default function FundingNewsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [showBookmarked, setShowBookmarked] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchTerm(searchTerm), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchTerm, showBookmarked]);
 
   const fetchNews = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params: FundingNewsQueryParams = {
         page: currentPage,
         limit: 20
@@ -41,6 +52,10 @@ export default function FundingNewsPage() {
 
       if (showBookmarked) {
         params.bookmarked = true;
+      }
+
+      if (debouncedSearchTerm.trim()) {
+        params.search = debouncedSearchTerm.trim();
       }
 
       const response = await FundingNewsService.getAllFundingNews(params);
@@ -58,7 +73,7 @@ export default function FundingNewsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, showBookmarked]);
+  }, [currentPage, showBookmarked, debouncedSearchTerm]);
 
   useEffect(() => {
     fetchNews();
@@ -167,11 +182,13 @@ export default function FundingNewsPage() {
       </div>
 
       {/* News Display */}
-      <FundingNewsTable 
-        news={news} 
+      <FundingNewsTable
+        news={news}
         onToggleBookmark={handleToggleBookmark}
         onUpdate={fetchNews}
         loading={loading}
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
       />
 
       {/* Pagination */}

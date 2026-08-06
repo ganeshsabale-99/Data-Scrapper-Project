@@ -307,6 +307,10 @@ model ContactLog {
   coworkingCompanyId String?
   coworkingSpaceId   String?
   newTechParkId      String?
+  mallId             String?
+  hospitalId         String?
+  stadiumId          String?
+  airportId          String?
   actualLat          Float?
   actualLng          Float?
   followUpAt         DateTime?
@@ -316,11 +320,19 @@ model ContactLog {
   coworkingCompany   CoworkingCompany? @relation(fields: [coworkingCompanyId], references: [id], onDelete: Cascade)
   coworkingSpace     CoworkingSpace?   @relation(fields: [coworkingSpaceId], references: [id], onDelete: Cascade)
   newTechPark        NewTechPark?      @relation(fields: [newTechParkId], references: [id], onDelete: Cascade)
+  mall               Mall?             @relation(fields: [mallId], references: [id], onDelete: Cascade)
+  hospital           Hospital?         @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  stadium            Stadium?          @relation(fields: [stadiumId], references: [id], onDelete: Cascade)
+  airport            Airport?          @relation(fields: [airportId], references: [id], onDelete: Cascade)
 
   @@index([companyId, createdAt])
   @@index([newTechParkId, createdAt])
   @@index([coworkingSpaceId, createdAt])
   @@index([coworkingCompanyId, createdAt])
+  @@index([mallId, createdAt])
+  @@index([hospitalId, createdAt])
+  @@index([stadiumId, createdAt])
+  @@index([airportId, createdAt])
   @@index([status])
 }
 
@@ -554,6 +566,7 @@ model Mall {
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  contactLogs         ContactLog[]
 
   @@index([state])
   @@index([state, city])
@@ -597,6 +610,7 @@ model Hospital {
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  contactLogs         ContactLog[]
 
   @@index([state])
   @@index([state, city])
@@ -640,6 +654,7 @@ model Stadium {
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  contactLogs         ContactLog[]
 
   @@index([state])
   @@index([state, city])
@@ -683,6 +698,7 @@ model Airport {
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  contactLogs         ContactLog[]
 
   @@index([state])
   @@index([state, city])

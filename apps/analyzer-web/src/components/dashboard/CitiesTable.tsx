@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "./LoadingSpinner";
+import { getSegmentLabel } from "./constants";
 import type { CityRow, Segment } from "./types";
 
 interface CitiesTableProps {
@@ -21,7 +22,7 @@ export function CitiesTable({
   title = "City-wise Overview",
   emptyMessage = "No city data available"
 }: CitiesTableProps) {
-  const countLabel = segment === "coworkingSpaces" ? "Coworking Spaces" : "Tech Parks";
+  const countLabel = getSegmentLabel(segment);
   return (
     <Card>
       <CardHeader>

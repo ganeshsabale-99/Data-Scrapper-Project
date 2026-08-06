@@ -5,6 +5,7 @@ import {
   clearAuthToken,
   isAuthenticated,
   setUser,
+  getUser,
   clearUser,
   type AccessFlags,
   type StoredUser,
@@ -367,6 +368,47 @@ export const resetPassword = async (
       return responseData;
     }
     throw new Error("Failed to reset password");
+  }
+};
+
+interface RbacMeResponse {
+  success: boolean;
+  data?: {
+    effectiveRole?: string;
+    permissions?: string[];
+    flags?: AccessFlags;
+  };
+}
+
+// Session permissions/role are cached in sessionStorage at login and otherwise only
+// change on next login. Call this periodically (or on window focus) so that RBAC
+// changes an admin makes reach already-logged-in users without forcing a re-login.
+export const refreshUserAccess = async (): Promise<void> => {
+  if (!isAuthenticated()) return;
+  try {
+    const response = await axiosInstance.get<RbacMeResponse>("/rbac/me");
+    const access = response.data?.data;
+    if (!response.data?.success || !access) return;
+
+    const currentUser = getUser();
+    if (!currentUser) return;
+
+    const nextUser: StoredUser = {
+      ...currentUser,
+      role: access.effectiveRole || currentUser.role,
+      permissions: access.permissions || currentUser.permissions,
+      accessFlags: access.flags || currentUser.accessFlags,
+    };
+
+    const hasChanged =
+      JSON.stringify(nextUser.permissions) !== JSON.stringify(currentUser.permissions) ||
+      nextUser.role !== currentUser.role;
+
+    if (hasChanged) {
+      setUser(nextUser);
+    }
+  } catch {
+    // Non-fatal: keep the last-known permissions if this background refresh fails.
   }
 };
 

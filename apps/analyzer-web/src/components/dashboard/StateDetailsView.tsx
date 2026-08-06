@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { DashboardStats, ChartDistribution, CityRow, Segment } from "./types";
+import { getSegmentSingularLabel } from "./constants";
 import { useRoleAccess } from "@/hooks/use-role-access";
 import { toast } from "sonner";
 import { techParkService } from "@/services/techParkService";
@@ -134,7 +135,7 @@ export function StateDetailsView({
               <DialogTitle>Add City</DialogTitle>
               <DialogDescription>
                 Create/open a city under <span className="font-medium">{stateName}</span> so the team can add a{" "}
-                {segment === "coworkingSpaces" ? "coworking space" : "tech park"} manually.
+                {getSegmentSingularLabel(segment).toLowerCase()} manually.
               </DialogDescription>
             </DialogHeader>
 

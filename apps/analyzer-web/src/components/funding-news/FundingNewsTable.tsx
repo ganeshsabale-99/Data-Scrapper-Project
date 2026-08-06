@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +33,8 @@ interface FundingNewsTableProps {
   onToggleBookmark: (id: string) => void;
   onUpdate?: () => void;
   loading?: boolean;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
 }
 
 type SortField = 'title' | 'source' | 'date_published' | 'created_at' | 'contact_status';
@@ -41,6 +43,10 @@ type SortDirection = 'asc' | 'desc';
 const sourceColors = {
   ENTRACKR: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   YOURSTORY: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+  VCCIRCLE: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  TECHCRUNCH: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+  ETSTARTUP: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
+  INC42: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
 };
 
 const statusColors = {
@@ -111,27 +117,11 @@ const formatDate = (dateString: string | undefined): string => {
   }
 };
 
-export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loading }: FundingNewsTableProps) {
+export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loading, searchTerm, onSearchChange }: FundingNewsTableProps) {
   const navigate = useNavigate();
   const [sortField, setSortField] = useState<SortField>('date_published');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [editingItem, setEditingItem] = useState<FundingNews | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-
-  // Filter news based on search term
-  const filteredNews = useMemo(() => {
-    if (!searchTerm.trim()) return news;
-
-    const term = searchTerm.toLowerCase();
-    return news.filter((item) =>
-      item.title.toLowerCase().includes(term) ||
-      item.author?.toLowerCase().includes(term) ||
-      item.industry?.toLowerCase().includes(term) ||
-      item.contact_person?.toLowerCase().includes(term) ||
-      item.contact_email?.toLowerCase().includes(term) ||
-      item.contact_phone?.toLowerCase().includes(term)
-    );
-  }, [news, searchTerm]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -142,7 +132,7 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
     }
   };
 
-  const sortedNews = [...filteredNews].sort((a, b) => {
+  const sortedNews = [...news].sort((a, b) => {
     let aValue = a[sortField] ?? '';
     let bValue = b[sortField] ?? '';
 
@@ -207,37 +197,31 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
 
   if (news.length === 0) {
     return (
-      <Card>
-        <CardContent className="p-12 text-center">
-          <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
-            No funding news found
-          </h3>
-          <p className="text-slate-600 dark:text-slate-400">
-            Try adjusting your search criteria or filters
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (filteredNews.length === 0 && searchTerm) {
-    return (
-      <Card>
-        <CardContent className="p-12 text-center">
-          <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
-            No funding news found
-          </h3>
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
-            No results found for "{searchTerm}". Try a different search term.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => setSearchTerm("")}
-          >
-            Clear search
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <SearchInput
+          placeholder="Search funding news..."
+          value={searchTerm}
+          onChange={onSearchChange}
+          className="max-w-md"
+        />
+        <Card>
+          <CardContent className="p-12 text-center">
+            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
+              No funding news found
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400 mb-4">
+              {searchTerm
+                ? `No results found for "${searchTerm}". Try a different search term.`
+                : "Try adjusting your search criteria or filters"}
+            </p>
+            {searchTerm && (
+              <Button variant="outline" onClick={() => onSearchChange("")}>
+                Clear search
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -249,14 +233,9 @@ export default function FundingNewsTable({ news, onToggleBookmark, onUpdate, loa
           <SearchInput
             placeholder="Search funding news..."
             value={searchTerm}
-            onChange={setSearchTerm}
+            onChange={onSearchChange}
             className="max-w-md"
           />
-          {searchTerm && (
-            <div className="text-sm text-muted-foreground">
-              {filteredNews.length} of {news.length} results
-            </div>
-          )}
         </div>
 
         {/* Desktop Table */}

@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Building2, Users } from "lucide-react";
+import { getSegmentLabel } from "./constants";
 import type { DashboardStats, Segment } from "./types";
 
 interface StatsRowProps {
@@ -28,9 +29,9 @@ export function StatsRow({ stats, segment, isLoading = false }: StatsRowProps) {
 
   if (!stats) return null;
 
-  const isTechPark = segment === "techParks";
-  const totalLabel = isTechPark ? "Total Tech Parks" : "Total Coworking Spaces";
-  const contactedLabel = isTechPark ? "Contacted Parks" : "Contacted Spaces";
+  const segmentLabel = getSegmentLabel(segment);
+  const totalLabel = `Total ${segmentLabel}`;
+  const contactedLabel = `Contacted ${segmentLabel}`;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">

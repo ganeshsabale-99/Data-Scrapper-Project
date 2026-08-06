@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -71,8 +70,6 @@ const getDisplayPhone = (value?: string | null) => {
 
 export default function UsersPage() {
   useRoleAccess();
-  const navigate = useNavigate();
-  const location = useLocation();
   const queryClient = useQueryClient();
   const [users, setUsers] = useState<AdminUserDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -307,7 +304,11 @@ export default function UsersPage() {
                                           setActionId(u.id);
                                           const res = await approveAdminUser(u.id);
                                           const updated = res.data;
-                                          setUsers((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
+                                          setUsers((prev) =>
+                                            statusFilter === "PENDING" && updated.status !== "ADMIN_APPROVAL_PENDING"
+                                              ? prev.filter((x) => x.id !== updated.id)
+                                              : prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x))
+                                          );
                                           toast.success("User approved");
                                         } catch (e: unknown) {
                                           toast.error(toFriendlyUsersError(e));
@@ -334,7 +335,11 @@ export default function UsersPage() {
                                           setActionId(u.id);
                                           const res = await rejectAdminUser(u.id, reason);
                                           const updated = res.data;
-                                          setUsers((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
+                                          setUsers((prev) =>
+                                            statusFilter === "PENDING" && updated.status !== "ADMIN_APPROVAL_PENDING"
+                                              ? prev.filter((x) => x.id !== updated.id)
+                                              : prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x))
+                                          );
                                           toast.success("User rejected");
                                         } catch (e: unknown) {
                                           toast.error(toFriendlyUsersError(e));

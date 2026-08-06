@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "./LoadingSpinner";
+import { getSegmentLabel } from "./constants";
 import type { StateRow, Segment } from "./types";
 
 interface StatesTableProps {
@@ -12,7 +13,7 @@ interface StatesTableProps {
 }
 
 export function StatesTable({ stateRows, segment, isLoading, onViewDetails }: StatesTableProps) {
-  const countLabel = segment === "coworkingSpaces" ? "Coworking Spaces" : "Tech Parks";
+  const countLabel = getSegmentLabel(segment);
   return (
     <Card>
       <CardHeader>

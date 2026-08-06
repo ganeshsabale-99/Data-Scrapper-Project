@@ -22,12 +22,14 @@ import {
 } from 'lucide-react';
 import { contactLogService } from '../../services/contactLogService';
 import type { ContactLog, ContactLogData } from '../../services/contactLogService';
+import type { VenueSegment } from '../../services/genericVenueService';
 import { toast } from 'sonner';
 
 interface ContactLogsProps {
     companyId: string;
     companyName: string;
-    companyType?: 'techpark' | 'coworking';
+    companyType?: 'techpark' | 'coworking' | 'venue';
+    venueType?: VenueSegment;
     onStatusChange?: (status: string) => void;
 }
 
@@ -66,6 +68,7 @@ const readApiErrorMessage = (error: unknown, fallback: string): string => {
 export const ContactLogs: React.FC<ContactLogsProps> = ({
     companyId,
     companyType = 'techpark',
+    venueType,
     onStatusChange
 }) => {
     const [logs, setLogs] = useState<ContactLog[]>([]);
@@ -88,9 +91,11 @@ export const ContactLogs: React.FC<ContactLogsProps> = ({
         try {
             setLoading(true);
             const data =
-                companyType === 'coworking'
-                    ? await contactLogService.getCoworkingContactLogsByCompany(companyId)
-                    : await contactLogService.getContactLogsByCompany(companyId);
+                companyType === 'venue' && venueType
+                    ? await contactLogService.getContactLogsByVenue(venueType, companyId)
+                    : companyType === 'coworking'
+                        ? await contactLogService.getCoworkingContactLogsByCompany(companyId)
+                        : await contactLogService.getContactLogsByCompany(companyId);
             setLogs(data);
         } catch (error: unknown) {
             toast.error(readApiErrorMessage(error, 'Failed to load contact logs'));
@@ -98,7 +103,7 @@ export const ContactLogs: React.FC<ContactLogsProps> = ({
         } finally {
             setLoading(false);
         }
-    }, [companyId, companyType]);
+    }, [companyId, companyType, venueType]);
 
     useEffect(() => {
         loadContactLogs();
@@ -123,7 +128,9 @@ export const ContactLogs: React.FC<ContactLogsProps> = ({
                 });
                 toast.success('Contact log updated successfully');
             } else {
-                if (companyType === 'coworking') {
+                if (companyType === 'venue' && venueType) {
+                    await contactLogService.createVenueContactLog(venueType, companyId, formData as ContactLogData);
+                } else if (companyType === 'coworking') {
                     await contactLogService.createCoworkingContactLog(companyId, formData as ContactLogData);
                 } else {
                     await contactLogService.createContactLog(companyId, formData as ContactLogData);

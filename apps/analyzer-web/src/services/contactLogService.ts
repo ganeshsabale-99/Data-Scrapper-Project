@@ -1,4 +1,14 @@
 import { axiosInstance } from '../config/axios';
+import type { VenueSegment } from './genericVenueService';
+
+// Backend contact-log routes use singular venue-type segments (mall/hospital/...)
+// while the rest of the app uses the plural VenueSegment ("malls"/"hospitals"/...).
+const VENUE_SEGMENT_TO_ROUTE: Record<VenueSegment, string> = {
+    malls: 'mall',
+    hospitals: 'hospital',
+    stadiums: 'stadium',
+    airports: 'airport',
+};
 
 export interface ContactLogData {
     type: 'CALL' | 'EMAIL' | 'MEETING' | 'DEMO' | 'PROPOSAL';
@@ -107,6 +117,37 @@ class ContactLogService {
             return response.data.data;
         } catch (error) {
             console.error('Error creating coworking contact log:', error);
+            throw error;
+        }
+    }
+
+    // Get all contact logs for a generic venue (mall/hospital/stadium/airport)
+    async getContactLogsByVenue(venueType: VenueSegment, venueId: string): Promise<ContactLog[]> {
+        try {
+            const response = await axiosInstance.get(`${this.baseUrl}/${VENUE_SEGMENT_TO_ROUTE[venueType]}/${venueId}`);
+            return response.data.data;
+        } catch (error) {
+            console.error('Error fetching venue contact logs:', error);
+            throw error;
+        }
+    }
+
+    async getVenueContactLogStats(venueType: VenueSegment, venueId: string): Promise<ContactLogStats> {
+        try {
+            const response = await axiosInstance.get(`${this.baseUrl}/${VENUE_SEGMENT_TO_ROUTE[venueType]}/${venueId}/stats`);
+            return response.data.data;
+        } catch (error) {
+            console.error('Error fetching venue contact log stats:', error);
+            throw error;
+        }
+    }
+
+    async createVenueContactLog(venueType: VenueSegment, venueId: string, logData: ContactLogData): Promise<ContactLog> {
+        try {
+            const response = await axiosInstance.post(`${this.baseUrl}/${VENUE_SEGMENT_TO_ROUTE[venueType]}/${venueId}`, logData);
+            return response.data.data;
+        } catch (error) {
+            console.error('Error creating venue contact log:', error);
             throw error;
         }
     }

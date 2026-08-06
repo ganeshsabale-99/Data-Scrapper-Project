@@ -1,4 +1,4 @@
-import { CITY_TO_STATE_MAP, INDIA_STATES_AND_UTS } from "./constants";
+import { CITY_TO_STATE_MAP, INDIA_STATES_AND_UTS, getSegmentLabel } from "./constants";
 import type { CurrentView } from "./types";
 import { getUserCity, getUserState } from "@/lib/token";
 
@@ -129,8 +129,12 @@ export function getBasePath(pathname: string): string {
   return '/dashboard/mock-techparks';
 }
 
+export function withTabParam(path: string, segment: string): string {
+  return `${path}?tab=${encodeURIComponent(segment)}`;
+}
+
 export function getPageTitle(pathname: string, segment: string): string {
-  const type = segment === "techParks" ? "Tech Parks" : "Coworking Spaces";
+  const type = getSegmentLabel(segment);
   if (pathname.includes('/dashboard/national')) {
     return `National ${type} Overview`;
   } else if (pathname.includes('/dashboard/state')) {
@@ -143,9 +147,9 @@ export function getPageTitle(pathname: string, segment: string): string {
 }
 
 export function getTabLabel(pathname: string, segment: string): string {
-  const type = segment === "techParks" ? "Tech Parks" : "Coworking Spaces";
+  const type = getSegmentLabel(segment);
   if (pathname.includes('/dashboard/national')) return `National ${type} Overview`;
   if (pathname.includes('/dashboard/state')) return `State ${type} Overview`;
   if (pathname.includes('/dashboard/city')) return `City ${type} Overview`;
   return `${type} Demo`;
-} 
+}

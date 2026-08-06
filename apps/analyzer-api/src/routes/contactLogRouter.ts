@@ -15,15 +15,37 @@ import {
   getContactLogsByCoworkingSpace,
   createCoworkingSpaceContactLog
 } from "../controller/contactLogController";
+import {
+  getContactLogsByVenue,
+  createVenueContactLog,
+  getVenueContactLogStats,
+  type GenericVenueType,
+} from "../controller/genericVenueContactLogController";
 
 export const contactLogRouter: Router = Router();
 
 contactLogRouter.use(
   authenticateToken,
-  checkPermission(["TECHPARKS.VIEW", "COWORKING.VIEW"], {
-    mode: "any",
-  }),
+  checkPermission(
+    [
+      "TECHPARKS.VIEW",
+      "COWORKING.VIEW",
+      "MALLS.VIEW",
+      "HOSPITALS.VIEW",
+      "STADIUMS.VIEW",
+      "AIRPORTS.VIEW",
+    ],
+    { mode: "any" },
+  ),
 );
+
+const GENERIC_VENUE_TYPES: GenericVenueType[] = ["mall", "hospital", "stadium", "airport"];
+
+for (const venueType of GENERIC_VENUE_TYPES) {
+  contactLogRouter.get(`/${venueType}/:venueId`, getContactLogsByVenue(venueType));
+  contactLogRouter.get(`/${venueType}/:venueId/stats`, getVenueContactLogStats(venueType));
+  contactLogRouter.post(`/${venueType}/:venueId`, createVenueContactLog(venueType));
+}
 
 contactLogRouter.get("/company/:companyId", getContactLogsByCompany);
 contactLogRouter.get("/company/:companyId/stats", getContactLogStats);

@@ -23,6 +23,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, X } from "lucide-react";
 import { techParkService } from "@/services/techParkService";
 import { toast } from "sonner";
+import { getSegmentSingularLabel } from "@/components/dashboard/constants";
+import { ContactLogs } from "@/components/contact-logs/ContactLogs";
+import type { VenueSegment } from "@/services/genericVenueService";
+
+const GENERIC_VENUE_SEGMENTS: readonly string[] = ["malls", "hospitals", "stadiums", "airports"];
+const isVenueSegment = (segment: string): segment is VenueSegment =>
+  GENERIC_VENUE_SEGMENTS.includes(segment);
 
 type TechParkFormData = {
   name: string;
@@ -787,14 +794,14 @@ export const AddLocationDialog = <TLocation extends LocationDraft>({
           <DialogHeader>
             <DialogTitle>
               {newLocation?.id
-                ? `Edit ${segment === "coworkingSpaces" ? "Coworking Space" : "Tech Park"}`
-                : `Add New ${segment === "coworkingSpaces" ? "Coworking Space" : "Tech Park"}`
+                ? `Edit ${getSegmentSingularLabel(segment)}`
+                : `Add New ${getSegmentSingularLabel(segment)}`
               }
             </DialogTitle>
             <DialogDescription>
               {newLocation?.id
-                ? `Update the details for this ${segment === "coworkingSpaces" ? "coworking space" : "tech park"}.`
-                : `Fill in the details of the new ${segment === "coworkingSpaces" ? "coworking space" : "tech park"}.`
+                ? `Update the details for this ${getSegmentSingularLabel(segment).toLowerCase()}.`
+                : `Fill in the details of the new ${getSegmentSingularLabel(segment).toLowerCase()}.`
               }
             </DialogDescription>
           </DialogHeader>
@@ -1313,6 +1320,17 @@ export const AddLocationDialog = <TLocation extends LocationDraft>({
                   </div>
                 </>
               )}
+
+              {newLocation?.id && isVenueSegment(segment) && (
+                <div className="pt-2">
+                  <ContactLogs
+                    companyId={newLocation.id}
+                    companyName={newLocation.name || ""}
+                    companyType="venue"
+                    venueType={segment}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -1325,7 +1343,7 @@ export const AddLocationDialog = <TLocation extends LocationDraft>({
                 ? (newLocation?.id ? 'Saving…' : 'Adding…')
                 : (newLocation?.id
                   ? 'Save Changes'
-                  : `Add ${segment === "coworkingSpaces" ? "Coworking Space" : "Tech Park"}`
+                  : `Add ${getSegmentSingularLabel(segment)}`
                 )
               }
             </Button>

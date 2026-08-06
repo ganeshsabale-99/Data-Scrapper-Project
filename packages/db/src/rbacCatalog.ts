@@ -22,6 +22,18 @@ export type PermissionKey =
   | "TECHPARKS.VERIFY"
   | "COWORKING.VIEW"
   | "COWORKING.MANAGE"
+  | "MALLS.VIEW"
+  | "MALLS.MANAGE"
+  | "MALLS.VERIFY"
+  | "HOSPITALS.VIEW"
+  | "HOSPITALS.MANAGE"
+  | "HOSPITALS.VERIFY"
+  | "STADIUMS.VIEW"
+  | "STADIUMS.MANAGE"
+  | "STADIUMS.VERIFY"
+  | "AIRPORTS.VIEW"
+  | "AIRPORTS.MANAGE"
+  | "AIRPORTS.VERIFY"
   | "FUNDING.NEWS_VIEW"
   | "REPORTS.VIEW"
   | "NOTIFICATIONS.VIEW"
@@ -137,6 +149,90 @@ export const RBAC_PERMISSION_CATALOG: PermissionDefinition[] = [
     isSystem: true,
   },
   {
+    key: "MALLS.VIEW",
+    name: "View Malls",
+    module: "MALLS",
+    description: "Can view mall inventory",
+    isSystem: true,
+  },
+  {
+    key: "MALLS.MANAGE",
+    name: "Manage Malls",
+    module: "MALLS",
+    description: "Can create/update/delete malls",
+    isSystem: true,
+  },
+  {
+    key: "MALLS.VERIFY",
+    name: "Verify Malls",
+    module: "MALLS",
+    description: "Can verify/unverify malls",
+    isSystem: true,
+  },
+  {
+    key: "HOSPITALS.VIEW",
+    name: "View Hospitals",
+    module: "HOSPITALS",
+    description: "Can view hospital inventory",
+    isSystem: true,
+  },
+  {
+    key: "HOSPITALS.MANAGE",
+    name: "Manage Hospitals",
+    module: "HOSPITALS",
+    description: "Can create/update/delete hospitals",
+    isSystem: true,
+  },
+  {
+    key: "HOSPITALS.VERIFY",
+    name: "Verify Hospitals",
+    module: "HOSPITALS",
+    description: "Can verify/unverify hospitals",
+    isSystem: true,
+  },
+  {
+    key: "STADIUMS.VIEW",
+    name: "View Stadiums",
+    module: "STADIUMS",
+    description: "Can view stadium inventory",
+    isSystem: true,
+  },
+  {
+    key: "STADIUMS.MANAGE",
+    name: "Manage Stadiums",
+    module: "STADIUMS",
+    description: "Can create/update/delete stadiums",
+    isSystem: true,
+  },
+  {
+    key: "STADIUMS.VERIFY",
+    name: "Verify Stadiums",
+    module: "STADIUMS",
+    description: "Can verify/unverify stadiums",
+    isSystem: true,
+  },
+  {
+    key: "AIRPORTS.VIEW",
+    name: "View Airports",
+    module: "AIRPORTS",
+    description: "Can view airport inventory",
+    isSystem: true,
+  },
+  {
+    key: "AIRPORTS.MANAGE",
+    name: "Manage Airports",
+    module: "AIRPORTS",
+    description: "Can create/update/delete airports",
+    isSystem: true,
+  },
+  {
+    key: "AIRPORTS.VERIFY",
+    name: "Verify Airports",
+    module: "AIRPORTS",
+    description: "Can verify/unverify airports",
+    isSystem: true,
+  },
+  {
     key: "FUNDING.NEWS_VIEW",
     name: "View Funding News",
     module: "FUNDING",
@@ -197,6 +293,18 @@ export const DEFAULT_SYSTEM_ROLE_TEMPLATES: RoleTemplate[] = [
       "TECHPARKS.VERIFY",
       "COWORKING.VIEW",
       "COWORKING.MANAGE",
+      "MALLS.VIEW",
+      "MALLS.MANAGE",
+      "MALLS.VERIFY",
+      "HOSPITALS.VIEW",
+      "HOSPITALS.MANAGE",
+      "HOSPITALS.VERIFY",
+      "STADIUMS.VIEW",
+      "STADIUMS.MANAGE",
+      "STADIUMS.VERIFY",
+      "AIRPORTS.VIEW",
+      "AIRPORTS.MANAGE",
+      "AIRPORTS.VERIFY",
       "FUNDING.NEWS_VIEW",
       "REPORTS.VIEW",
       "NOTIFICATIONS.VIEW",
@@ -213,6 +321,14 @@ export const DEFAULT_SYSTEM_ROLE_TEMPLATES: RoleTemplate[] = [
       "TECHPARKS.VIEW",
       "COWORKING.VIEW",
       "COWORKING.MANAGE",
+      "MALLS.VIEW",
+      "MALLS.MANAGE",
+      "HOSPITALS.VIEW",
+      "HOSPITALS.MANAGE",
+      "STADIUMS.VIEW",
+      "STADIUMS.MANAGE",
+      "AIRPORTS.VIEW",
+      "AIRPORTS.MANAGE",
       "FUNDING.NEWS_VIEW",
       "NOTIFICATIONS.VIEW",
     ],
@@ -228,6 +344,14 @@ export const DEFAULT_SYSTEM_ROLE_TEMPLATES: RoleTemplate[] = [
       "TECHPARKS.VIEW",
       "COWORKING.VIEW",
       "COWORKING.MANAGE",
+      "MALLS.VIEW",
+      "MALLS.MANAGE",
+      "HOSPITALS.VIEW",
+      "HOSPITALS.MANAGE",
+      "STADIUMS.VIEW",
+      "STADIUMS.MANAGE",
+      "AIRPORTS.VIEW",
+      "AIRPORTS.MANAGE",
       "FUNDING.NEWS_VIEW",
       "NOTIFICATIONS.VIEW",
     ],

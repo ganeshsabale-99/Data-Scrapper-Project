@@ -65,13 +65,21 @@ export const INDIA_STATES_AND_UTS: readonly string[] = [
 ];
 
 export const TAB_ITEMS = [
-  { key: "techParks" as const, label: "Tech Parks" },
-  { key: "coworkingSpaces" as const, label: "Coworking Spaces" },
-  { key: "malls" as const, label: "Malls" },
-  { key: "hospitals" as const, label: "Hospitals" },
-  { key: "stadiums" as const, label: "Stadiums" },
-  { key: "airports" as const, label: "Airports" },
+  { key: "techParks" as const, label: "Tech Parks", singularLabel: "Tech Park" },
+  { key: "coworkingSpaces" as const, label: "Coworking Spaces", singularLabel: "Coworking Space" },
+  { key: "malls" as const, label: "Malls", singularLabel: "Mall" },
+  { key: "hospitals" as const, label: "Hospitals", singularLabel: "Hospital" },
+  { key: "stadiums" as const, label: "Stadiums", singularLabel: "Stadium" },
+  { key: "airports" as const, label: "Airports", singularLabel: "Airport" },
 ];
+
+export function getSegmentLabel(segment: string): string {
+  return TAB_ITEMS.find((item) => item.key === segment)?.label ?? "Tech Parks";
+}
+
+export function getSegmentSingularLabel(segment: string): string {
+  return TAB_ITEMS.find((item) => item.key === segment)?.singularLabel ?? "Tech Park";
+}
 
 export const DEFAULT_NEW_LOCATION = {
   id: "",
