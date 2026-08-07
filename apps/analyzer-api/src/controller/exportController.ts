@@ -4,6 +4,18 @@ import ExcelJS from "exceljs";
 import { getQueryString } from "../utils/queryUtils";
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
 
+// The PDF report is built by string-concatenating DB-sourced text into HTML that a
+// headless browser then renders — any unescaped field is an HTML/script injection point.
+const escapeHtml = (value: unknown): string => {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+};
+
 const GENERIC_VENUE_MODELS: Record<string, { model: any; label: string; singularLabel: string }> = {
     mall: { model: prismaInstance.mall, label: 'Malls', singularLabel: 'Mall' },
     hospital: { model: prismaInstance.hospital, label: 'Hospitals', singularLabel: 'Hospital' },
@@ -403,13 +415,13 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
         </style>
     </head>
     <body>
-        <h1>${
+        <h1>${escapeHtml(
             entityType === 'all' ? 'All Properties' :
             entityType === 'techPark' ? 'Tech Parks' :
             entityType === 'coworkingSpace' ? 'Coworking Spaces' :
             GENERIC_VENUE_MODELS[entityType]?.label ?? entityType
-        } Report</h1>
-        <p class="meta"><strong>Status:</strong> ${statusFilter} | <strong>State:</strong> ${state || 'All'} | <strong>City:</strong> ${city || 'All'}</p>
+        )} Report</h1>
+        <p class="meta"><strong>Status:</strong> ${escapeHtml(statusFilter)} | <strong>State:</strong> ${escapeHtml(state) || 'All'} | <strong>City:</strong> ${escapeHtml(city) || 'All'}</p>
         <table>
             <thead>
                 <tr>
@@ -448,12 +460,12 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
             rows += `
                 <tr>
                     <td>Tech Park</td>
-                    <td>${park.name}</td>
-                    <td>${park.city || '-'}, ${park.state || '-'}</td>
-                    <td>${park.status || '-'}</td>
+                    <td>${escapeHtml(park.name)}</td>
+                    <td>${escapeHtml(park.city || '-')}, ${escapeHtml(park.state || '-')}</td>
+                    <td>${escapeHtml(park.status || '-')}</td>
                     <td>${park.isVerified ? 'Yes' : 'No'}</td>
-                    <td>${operator}</td>
-                    <td>${contact}</td>
+                    <td>${escapeHtml(operator)}</td>
+                    <td>${escapeHtml(contact)}</td>
                 </tr>
             `;
         });
@@ -467,12 +479,12 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
             rows += `
                 <tr>
                     <td>Coworking</td>
-                    <td>${space.name}</td>
-                    <td>${space.city || '-'}, ${space.state || '-'}</td>
-                    <td>${space.status || '-'}</td>
+                    <td>${escapeHtml(space.name)}</td>
+                    <td>${escapeHtml(space.city || '-')}, ${escapeHtml(space.state || '-')}</td>
+                    <td>${escapeHtml(space.status || '-')}</td>
                     <td>${space.isVerified ? 'Yes' : 'No'}</td>
-                    <td>${operator}</td>
-                    <td>${contact}</td>
+                    <td>${escapeHtml(operator)}</td>
+                    <td>${escapeHtml(contact)}</td>
                 </tr>
             `;
         });
@@ -494,13 +506,13 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
             const operator = venue.spoc_name || '-';
             rows += `
                 <tr>
-                    <td>${singularLabel}</td>
-                    <td>${venue.name}</td>
-                    <td>${venue.city || '-'}, ${venue.state || '-'}</td>
-                    <td>${venue.status || '-'}</td>
+                    <td>${escapeHtml(singularLabel)}</td>
+                    <td>${escapeHtml(venue.name)}</td>
+                    <td>${escapeHtml(venue.city || '-')}, ${escapeHtml(venue.state || '-')}</td>
+                    <td>${escapeHtml(venue.status || '-')}</td>
                     <td>${venue.isVerified ? 'Yes' : 'No'}</td>
-                    <td>${operator}</td>
-                    <td>${contact}</td>
+                    <td>${escapeHtml(operator)}</td>
+                    <td>${escapeHtml(contact)}</td>
                 </tr>
             `;
         });

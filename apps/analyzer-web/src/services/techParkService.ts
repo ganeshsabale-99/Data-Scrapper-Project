@@ -232,6 +232,16 @@ export const techParkService = {
     return response.data;
   },
 
+  async assignTechPark(id: string, userId?: string) {
+    const response = await axiosInstance.post(`/new-techparks/${id}/assign`, userId ? { userId } : {});
+    return response.data;
+  },
+
+  async unassignTechPark(id: string) {
+    const response = await axiosInstance.post(`/new-techparks/${id}/unassign`);
+    return response.data;
+  },
+
   async verifyAllUnverifiedInCity(
     state: string,
     city: string,
@@ -306,9 +316,10 @@ export const techParkService = {
   },
 
   // Company management functions
-  async getCompaniesByTechPark(techParkId: string, page = 1, limit = 10, search?: string) {
+  async getCompaniesByTechPark(techParkId: string, page = 1, limit = 10, search?: string, includeInactive?: boolean) {
     const params: Record<string, string | number> = { page, limit };
     if (search) params.search = search;
+    if (includeInactive) params.includeInactive = "true";
 
     const response = await axiosInstance.get(`/new-techparks/${techParkId}/companies`, {
       params,

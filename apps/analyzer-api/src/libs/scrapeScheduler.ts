@@ -6,47 +6,55 @@ import { getAllIndiaHospitals } from "./getAllIndiaHospitals";
 import { getAllIndiaStadiums } from "./getAllIndiaStadiums";
 import { getAllIndiaAirports } from "./getAllIndiaAirports";
 import { logOperationalEvent } from "./serviceHealthLogger";
+import {
+  getActiveScrapeJob,
+  startScrapeJob,
+  completeScrapeJob,
+  failScrapeJob,
+  type VenueTypeKey,
+} from "./scrapeJobService";
 
-let isScrapeRunning = false;
+const SCRAPERS: Array<{ name: VenueTypeKey; fn: () => Promise<{ totalFound?: number; saved?: number; skipped?: number; failed?: number } | void> }> = [
+  { name: "techPark",       fn: () => getAllIndiaTechParks() },
+  { name: "coworkingSpace", fn: () => getAllIndiaCoworkingSpaces() },
+  { name: "mall",           fn: () => getAllIndiaMalls() },
+  { name: "hospital",       fn: () => getAllIndiaHospitals() },
+  { name: "stadium",        fn: () => getAllIndiaStadiums() },
+  { name: "airport",        fn: () => getAllIndiaAirports() },
+];
 
 // Runs all 6 venue scrapers sequentially so Google API rate limits aren't exceeded.
-const runAllScrapers = async () => {
-  if (isScrapeRunning) {
-    logOperationalEvent("scrapeScheduler.skipped", { reason: "previous run still in progress" }, "warn");
-    return;
-  }
-
-  isScrapeRunning = true;
+// Each venue type goes through the same DB-backed lock (scrapeJobService) that manual
+// triggers use, so a scheduled run and a manual trigger for the same type can never
+// run concurrently — one will just see the other's job as active and skip.
+const runAllScrapers = async (triggeredBy: string) => {
   const startedAt = new Date().toISOString();
-  logOperationalEvent("scrapeScheduler.started", { startedAt });
+  logOperationalEvent("scrapeScheduler.started", { startedAt, triggeredBy });
   console.log(`[ScrapeScheduler] Full scrape started at ${startedAt}`);
 
-  const scrapers: Array<{ name: string; fn: () => Promise<void> }> = [
-    { name: "techParks",       fn: () => getAllIndiaTechParks() },
-    { name: "coworkingSpaces", fn: () => getAllIndiaCoworkingSpaces() },
-    { name: "malls",           fn: () => getAllIndiaMalls() },
-    { name: "hospitals",       fn: () => getAllIndiaHospitals() },
-    { name: "stadiums",        fn: () => getAllIndiaStadiums() },
-    { name: "airports",        fn: () => getAllIndiaAirports() },
-  ];
+  for (const { name, fn } of SCRAPERS) {
+    const activeJob = await getActiveScrapeJob(name);
+    if (activeJob) {
+      logOperationalEvent(`scrapeScheduler.${name}.skipped`, { reason: "already running", jobId: activeJob.id }, "warn");
+      console.warn(`[ScrapeScheduler] Skipping ${name} — already running (job ${activeJob.id})`);
+      continue;
+    }
 
-  for (const { name, fn } of scrapers) {
+    const job = await startScrapeJob(name, { triggeredBy });
     console.log(`[ScrapeScheduler] Starting: ${name}`);
     try {
-      await fn();
-      logOperationalEvent(`scrapeScheduler.${name}.completed`, {});
+      const result = (await fn()) || undefined;
+      await completeScrapeJob(job.id, result ?? {});
+      logOperationalEvent(`scrapeScheduler.${name}.completed`, { jobId: job.id, ...result });
       console.log(`[ScrapeScheduler] Finished: ${name}`);
     } catch (error) {
-      logOperationalEvent(
-        `scrapeScheduler.${name}.failed`,
-        { error: error instanceof Error ? error.message : String(error) },
-        "warn",
-      );
+      const message = error instanceof Error ? error.message : String(error);
+      await failScrapeJob(job.id, message);
+      logOperationalEvent(`scrapeScheduler.${name}.failed`, { jobId: job.id, error: message }, "warn");
       console.error(`[ScrapeScheduler] Failed: ${name}`, error);
     }
   }
 
-  isScrapeRunning = false;
   const finishedAt = new Date().toISOString();
   logOperationalEvent("scrapeScheduler.completed", { startedAt, finishedAt });
   console.log(`[ScrapeScheduler] All scrapers done at ${finishedAt}`);
@@ -68,13 +76,13 @@ export const startScrapeScheduler = () => {
   }
 
   cron.schedule(cronExpr, () => {
-    void runAllScrapers();
+    void runAllScrapers("scheduler");
   }, { timezone: "Asia/Kolkata" });
 
   console.log(`[ScrapeScheduler] Scheduled — cron: "${cronExpr}" (Asia/Kolkata). Next run: Sunday 2:00 AM IST.`);
   logOperationalEvent("scrapeScheduler.registered", { cronExpr });
 };
 
-export const triggerManualScrape = async () => {
-  await runAllScrapers();
+export const triggerManualScrape = async (triggeredBy = "manual") => {
+  await runAllScrapers(triggeredBy);
 };

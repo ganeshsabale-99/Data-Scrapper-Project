@@ -119,6 +119,16 @@ function createVenueService(path: string) {
       return res.data;
     },
 
+    async assignVenue(id: string, userId?: string) {
+      const res = await axiosInstance.post(`/${path}/${id}/assign`, userId ? { userId } : {});
+      return res.data;
+    },
+
+    async unassignVenue(id: string) {
+      const res = await axiosInstance.post(`/${path}/${id}/unassign`);
+      return res.data;
+    },
+
     async getVenueById(id: string) {
       const res = await axiosInstance.get(`/${path}/${id}`);
       return res.data;

@@ -11,6 +11,8 @@ import {
   changeStatus,
   verifyVenue,
   unverifyVenue,
+  assignVenue,
+  unassignVenue,
 } from "../controller/mallController";
 import { triggerMallScrape, getMallScrapeStatus } from "../controller/mallScraperController";
 
@@ -33,3 +35,5 @@ mallsRouter.patch("/:id", authenticateToken, canManage, updateVenue);
 mallsRouter.delete("/:id", authenticateToken, canManage, deleteVenue);
 mallsRouter.post("/:id/verify", authenticateToken, canVerify, verifyVenue);
 mallsRouter.post("/:id/unverify", authenticateToken, canVerify, unverifyVenue);
+mallsRouter.post("/:id/assign", authenticateToken, canManage, assignVenue);
+mallsRouter.post("/:id/unassign", authenticateToken, canManage, unassignVenue);

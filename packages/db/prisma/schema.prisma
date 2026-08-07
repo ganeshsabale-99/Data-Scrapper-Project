@@ -45,6 +45,12 @@ model AdminUser {
   accessRoles             AdminUserAccessRole[] @relation("AdminUserAccessRoleUser")
   verifiedCoworkingSpaces CoworkingSpace[]      @relation("CoworkingSpaceVerifiedBy")
   verifiedTechParks       NewTechPark[]         @relation("NewTechParkVerifiedBy")
+  ownedTechParks          NewTechPark[]         @relation("NewTechParkOwnedBy")
+  ownedCoworkingSpaces    CoworkingSpace[]      @relation("CoworkingSpaceOwnedBy")
+  ownedMalls              Mall[]                @relation("MallOwnedBy")
+  ownedHospitals          Hospital[]            @relation("HospitalOwnedBy")
+  ownedStadiums           Stadium[]             @relation("StadiumOwnedBy")
+  ownedAirports           Airport[]             @relation("AirportOwnedBy")
 
   @@index([organizationId])
 }
@@ -243,8 +249,11 @@ model NewTechPark {
   duplication_score      Float?            @default(0)
   reviewStatus           ReviewStatus      @default(PENDING_REVIEW)
   ai_review_summary      Json?
+  ownerId                String?
+  assignedAt             DateTime?
   contactLogs            ContactLog[]
   verifiedByUser         AdminUser?        @relation("NewTechParkVerifiedBy", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+  owner                  AdminUser?        @relation("NewTechParkOwnedBy", fields: [ownerId], references: [id], onDelete: SetNull)
   companies              TechParkCompany[]
 
   @@index([state])
@@ -255,12 +264,14 @@ model NewTechPark {
   @@index([reviewStatus])
   @@index([verifiedByUserId])
   @@index([verifiedAt])
+  @@index([ownerId])
 }
 
 
 
 model TechParkCompany {
   id                          String       @id @default(cuid())
+  place_id                    String?      @unique
   name                        String
   address                     String
   city                        String
@@ -280,7 +291,15 @@ model TechParkCompany {
   contact_phone               String?
   contact_international_phone String?
   contact_email               String?
+  linkedin_url                String?
+  twitter_url                 String?
+  facebook_url                String?
+  instagram_url               String?
+  crunchbase_url              String?
   newTechParkId               String?
+  isActive                    Boolean      @default(true)
+  firstSeenAt                 DateTime?
+  lastSeenAt                  DateTime?
   createdAt                   DateTime     @default(now())
   updatedAt                   DateTime     @updatedAt
   ContactLog                  ContactLog[]
@@ -289,6 +308,7 @@ model TechParkCompany {
   @@index([newTechParkId])
   @@index([business_status])
   @@index([city])
+  @@index([isActive])
 }
 
 model ContactLog {
@@ -355,8 +375,8 @@ model FundingNews {
   contact_phone     String?
   contact_status    Status?    @default(NOT_CONTACTED)
   date_published    DateTime?
-  founders          String[]
-  investors         String[]
+  founders          String[]   @default([])
+  investors         String[]   @default([])
   location          String?
   round             String?
 
@@ -380,6 +400,35 @@ model ActivityLog {
 
   @@index([performedById])
   @@index([entityType, entityId, createdAt(sort: Desc), id(sort: Desc)])
+}
+
+// Durable record of every scrape run, per venue type. Replaces in-memory-only
+// "is a scrape running" flags so a process restart doesn't silently lose all
+// trace that a run happened, and so the scheduler and manual triggers share one
+// real lock instead of two separate booleans that don't know about each other.
+model ScrapeJob {
+  id           String    @id @default(cuid())
+  venueType    String
+  status       ScrapeJobStatus @default(RUNNING)
+  triggeredBy  String?
+  testMode     Boolean   @default(false)
+  cityFilter   String?
+  totalFound   Int?
+  saved        Int?
+  skipped      Int?
+  failed       Int?
+  errorMessage String?
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+
+  @@index([venueType, status])
+  @@index([startedAt])
+}
+
+enum ScrapeJobStatus {
+  RUNNING
+  COMPLETED
+  FAILED
 }
 
 model CoworkingSpace {
@@ -424,13 +473,17 @@ model CoworkingSpace {
   isVerified          Boolean            @default(false)
   verifiedAt          DateTime?
   verifiedByUserId    String?
+  ownerId             String?
+  assignedAt          DateTime?
   contactLogs         ContactLog[]
   companies           CoworkingCompany[]
   verifiedByUser      AdminUser?         @relation("CoworkingSpaceVerifiedBy", fields: [verifiedByUserId], references: [id], onDelete: SetNull)
+  owner               AdminUser?         @relation("CoworkingSpaceOwnedBy", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([state])
   @@index([state, city])
   @@index([status])
+  @@index([ownerId])
 }
 
 model CoworkingCompany {
@@ -566,12 +619,16 @@ model Mall {
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  ownerId             String?
+  assignedAt          DateTime?
   contactLogs         ContactLog[]
+  owner               AdminUser? @relation("MallOwnedBy", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([state])
   @@index([state, city])
   @@index([status])
   @@index([is_active])
+  @@index([ownerId])
 }
 
 model Hospital {
@@ -610,12 +667,16 @@ model Hospital {
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  ownerId             String?
+  assignedAt          DateTime?
   contactLogs         ContactLog[]
+  owner               AdminUser? @relation("HospitalOwnedBy", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([state])
   @@index([state, city])
   @@index([status])
   @@index([is_active])
+  @@index([ownerId])
 }
 
 model Stadium {
@@ -654,12 +715,16 @@ model Stadium {
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  ownerId             String?
+  assignedAt          DateTime?
   contactLogs         ContactLog[]
+  owner               AdminUser? @relation("StadiumOwnedBy", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([state])
   @@index([state, city])
   @@index([status])
   @@index([is_active])
+  @@index([ownerId])
 }
 
 model Airport {
@@ -698,12 +763,16 @@ model Airport {
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  ownerId             String?
+  assignedAt          DateTime?
   contactLogs         ContactLog[]
+  owner               AdminUser? @relation("AirportOwnedBy", fields: [ownerId], references: [id], onDelete: SetNull)
 
   @@index([state])
   @@index([state, city])
   @@index([status])
   @@index([is_active])
+  @@index([ownerId])
 }
 
 enum AdminUserStatus {

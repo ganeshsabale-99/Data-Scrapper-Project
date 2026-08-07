@@ -11,6 +11,8 @@ import {
   changeStatus,
   verifyVenue,
   unverifyVenue,
+  assignVenue,
+  unassignVenue,
 } from "../controller/airportController";
 import { triggerAirportScrape, getAirportScrapeStatus } from "../controller/airportScraperController";
 
@@ -33,3 +35,5 @@ airportsRouter.patch("/:id", authenticateToken, canManage, updateVenue);
 airportsRouter.delete("/:id", authenticateToken, canManage, deleteVenue);
 airportsRouter.post("/:id/verify", authenticateToken, canVerify, verifyVenue);
 airportsRouter.post("/:id/unverify", authenticateToken, canVerify, unverifyVenue);
+airportsRouter.post("/:id/assign", authenticateToken, canManage, assignVenue);
+airportsRouter.post("/:id/unassign", authenticateToken, canManage, unassignVenue);

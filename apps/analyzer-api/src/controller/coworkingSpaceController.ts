@@ -292,6 +292,7 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
             orderBy: { name: 'asc' },
             skip,
             take: pageSize,
+            include: { owner: { select: { name: true } } },
         });
 
         const totalCoworkingSpaces = totalItems;
@@ -362,6 +363,8 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
             exterior_media_url: cs.exterior_media_url || null,
             exterior_media_urls: cs.exterior_media_urls || [],
             serialNumber: skip + index + 1,
+            ownerId: cs.ownerId ?? null,
+            ownerName: (cs as any).owner?.name ?? null,
         }));
 
         res.json({
@@ -893,6 +896,7 @@ export const getCoworkingSpaceById = async (req: Request, res: Response) => {
         applyScopeToStateCityWhere(accessWhere, scope);
         const coworkingSpace = await prismaInstance.coworkingSpace.findFirst({
             where: accessWhere,
+            include: { owner: { select: { id: true, name: true } } },
         });
 
         if (!coworkingSpace) {

@@ -859,7 +859,13 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
           challenges: true,
           lat: true,
           lng: true,
+          ownerId: true,
           verifiedByUser: {
+            select: {
+              name: true,
+            },
+          },
+          owner: {
             select: {
               name: true,
             },
@@ -925,6 +931,8 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
         hasVerificationProgress: formState.hasFormProgress,
         verifiedAt: tp.verifiedAt ?? null,
         verifiedByName: tp.verifiedByUser?.name ?? null,
+        ownerId: tp.ownerId ?? null,
+        ownerName: tp.owner?.name ?? null,
       };
     });
 
@@ -1795,9 +1803,11 @@ export const getCompaniesByTechPark = async (req: Request, res: Response) => {
     const page = parseInt(getQueryString(req.query.page) || "1", 10) || 1;
     const limit = parseInt(getQueryString(req.query.limit) || "10", 10) || 10;
     const search = getQueryString(req.query.search);
+    const includeInactive = getQueryString(req.query.includeInactive) === "true";
     const offset = (page - 1) * limit;
     const where: any = {
       newTechParkId: techParkId,
+      ...(includeInactive ? {} : { isActive: true }),
       ...buildTechParkCompanyScopeWhere(scope),
     };
     if (search && search.trim()) {
@@ -1829,6 +1839,7 @@ export const getCompaniesByTechPark = async (req: Request, res: Response) => {
     const allCompanies = await (prismaInstance as any).techParkCompany.findMany({
       where: {
         newTechParkId: techParkId,
+        ...(includeInactive ? {} : { isActive: true }),
         ...buildTechParkCompanyScopeWhere(scope),
       },
       select: { business_status: true },
@@ -1862,12 +1873,20 @@ export const getCompaniesByTechPark = async (req: Request, res: Response) => {
       contact_phone: c.contact_phone ?? null,
       contact_international_phone: c.contact_international_phone ?? null,
       contact_email: c.contact_email ?? null,
+      linkedin_url: c.linkedin_url ?? null,
+      twitter_url: c.twitter_url ?? null,
+      facebook_url: c.facebook_url ?? null,
+      instagram_url: c.instagram_url ?? null,
+      crunchbase_url: c.crunchbase_url ?? null,
       map_url: c.map_url ?? null,
       opening_hours: c.opening_hours || [],
       locationLat: c.locationLat ?? null,
       locationLng: c.locationLng ?? null,
       types: c.types || [],
       city: c.city,
+      isActive: c.isActive ?? true,
+      firstSeenAt: c.firstSeenAt ?? null,
+      lastSeenAt: c.lastSeenAt ?? null,
       serialNumber: offset + index + 1,
     }));
 
@@ -2027,6 +2046,8 @@ export const discoverCompaniesForTechPark = async (req: Request, res: Response) 
         discovered: syncResult.discovered,
         created: syncResult.created,
         updated: syncResult.updated,
+        reactivated: syncResult.reactivated,
+        markedInactive: syncResult.markedInactive,
         companies,
       },
     });
@@ -2212,6 +2233,11 @@ export const updateCompany = async (req: Request, res: Response) => {
     if (data.contact_phone !== undefined) updateData.contact_phone = data.contact_phone;
     if (data.contact_email !== undefined) updateData.contact_email = data.contact_email;
     if (data.contact_international_phone !== undefined) updateData.contact_international_phone = data.contact_international_phone;
+    if (data.linkedin_url !== undefined) updateData.linkedin_url = data.linkedin_url;
+    if (data.twitter_url !== undefined) updateData.twitter_url = data.twitter_url;
+    if (data.facebook_url !== undefined) updateData.facebook_url = data.facebook_url;
+    if (data.instagram_url !== undefined) updateData.instagram_url = data.instagram_url;
+    if (data.crunchbase_url !== undefined) updateData.crunchbase_url = data.crunchbase_url;
     if (data.business_status !== undefined && data.business_status !== null && data.business_status !== '') {
       updateData.business_status = data.business_status;
     }
@@ -2657,6 +2683,7 @@ export const getTechParkById = async (
     applyScopeToStateCityWhere(accessWhere, scope);
     const techPark = await prismaInstance.newTechPark.findFirst({
       where: accessWhere,
+      include: { owner: { select: { id: true, name: true } } },
     });
 
     if (!techPark) {

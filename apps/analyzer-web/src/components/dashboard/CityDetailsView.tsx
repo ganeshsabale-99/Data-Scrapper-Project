@@ -38,6 +38,9 @@ interface CityDetailsViewProps {
   onChangeStatus: (row: Location, status: string) => void;
   onVerify?: (row: Location) => void;
   onUnverify?: (row: Location) => void;
+  onAssign?: (row: Location) => void;
+  onUnassign?: (row: Location) => void;
+  currentUserId?: string | null;
   onBulkVerify?: () => void;
   canBulkVerify?: boolean;
   canApproveVerification?: boolean;
@@ -86,6 +89,9 @@ export function CityDetailsView({
   onChangeStatus,
   onVerify,
   onUnverify,
+  onAssign,
+  onUnassign,
+  currentUserId,
   canApproveVerification = false,
   verificationFilter = "ALL",
   onVerificationFilterChange,
@@ -291,6 +297,9 @@ export function CityDetailsView({
         onChangeStatus={onChangeStatus}
         onVerify={onVerify}
         onUnverify={onUnverify}
+        onAssign={onAssign}
+        onUnassign={onUnassign}
+        currentUserId={currentUserId}
         canApproveVerification={canApproveVerification}
         canEdit={canManageLocations}
         canChangeStatus={canManageLocations}

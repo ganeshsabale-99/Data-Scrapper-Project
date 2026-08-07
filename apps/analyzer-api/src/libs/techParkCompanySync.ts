@@ -21,6 +21,8 @@ export type TechParkCompanySyncResult = {
   discovered: number;
   created: number;
   updated: number;
+  reactivated: number;
+  markedInactive: number;
 };
 
 export type TechParkCompanyDetailEnrichmentResult = {
@@ -44,6 +46,9 @@ export const syncCompaniesForTechPark = async (
 
   let createdCount = 0;
   let updatedCount = 0;
+  let reactivatedCount = 0;
+  const seenCompanyIds = new Set<string>();
+  const now = new Date();
 
   for (const company of discoveredCompanies) {
     const locationHint = [company.city, techPark.city, techPark.state, techPark.name]
@@ -51,20 +56,29 @@ export const syncCompaniesForTechPark = async (
       .join(" ");
     const addressHint = company.address || techPark.address_line1 || "";
 
-    const existingCompany = await (prismaInstance as any).techParkCompany.findFirst({
-      where: {
-        newTechParkId: techPark.id,
-        OR: [
-          {
-            name: { equals: company.name, mode: "insensitive" },
-            address: { equals: company.address, mode: "insensitive" },
-          },
-          {
-            name: { equals: company.name, mode: "insensitive" },
-          },
-        ],
-      },
-    });
+    // Match by Google's place_id first — it's exact and stable across runs.
+    // Fall back to fuzzy name/address matching only for legacy rows created
+    // before place_id was tracked, so a re-sync migrates them forward instead
+    // of creating a duplicate.
+    const existingCompany =
+      (await (prismaInstance as any).techParkCompany.findFirst({
+        where: { place_id: company.place_id },
+      })) ||
+      (await (prismaInstance as any).techParkCompany.findFirst({
+        where: {
+          newTechParkId: techPark.id,
+          place_id: null,
+          OR: [
+            {
+              name: { equals: company.name, mode: "insensitive" },
+              address: { equals: company.address, mode: "insensitive" },
+            },
+            {
+              name: { equals: company.name, mode: "insensitive" },
+            },
+          ],
+        },
+      }));
 
     const resolvedWebsite =
       company.website ||
@@ -75,6 +89,7 @@ export const syncCompaniesForTechPark = async (
       await (prismaInstance as any).techParkCompany.update({
         where: { id: existingCompany.id },
         data: {
+          place_id: company.place_id,
           address: company.address || existingCompany.address,
           city: company.city || existingCompany.city,
           locationLat: company.locationLat || existingCompany.locationLat,
@@ -95,14 +110,20 @@ export const syncCompaniesForTechPark = async (
           contact_international_phone:
             company.contact_international_phone ?? existingCompany.contact_international_phone,
           contact_email: company.contact_email ?? existingCompany.contact_email,
+          isActive: true,
+          firstSeenAt: existingCompany.firstSeenAt ?? now,
+          lastSeenAt: now,
         },
       });
+      if (existingCompany.isActive === false) reactivatedCount++;
       updatedCount++;
+      seenCompanyIds.add(existingCompany.id);
       continue;
     }
 
-    await (prismaInstance as any).techParkCompany.create({
+    const created = await (prismaInstance as any).techParkCompany.create({
         data: {
+          place_id: company.place_id,
           newTechParkId: techPark.id,
           name: company.name,
           address: company.address || techPark.address_line1 || "",
@@ -123,10 +144,29 @@ export const syncCompaniesForTechPark = async (
         contact_phone: company.contact_phone,
         contact_international_phone: company.contact_international_phone,
         contact_email: company.contact_email,
+        isActive: true,
+        firstSeenAt: now,
+        lastSeenAt: now,
       },
     });
     createdCount++;
+    seenCompanyIds.add(created.id);
   }
+
+  // Anything previously discovered for this tech park (i.e. has a place_id, so
+  // it came from Google discovery rather than being manually added) that wasn't
+  // found in this run is no longer present — mark it inactive rather than
+  // deleting it, so "removed" companies stay visible with their history intact.
+  const markInactiveResult = await (prismaInstance as any).techParkCompany.updateMany({
+    where: {
+      newTechParkId: techPark.id,
+      place_id: { not: null },
+      isActive: true,
+      id: { notIn: Array.from(seenCompanyIds) },
+    },
+    data: { isActive: false },
+  });
+  const markedInactiveCount = markInactiveResult.count;
 
   const companiesMissingWebsite: Array<{
     id: string;
@@ -136,6 +176,7 @@ export const syncCompaniesForTechPark = async (
   }> = await (prismaInstance as any).techParkCompany.findMany({
     where: {
       newTechParkId: techPark.id,
+      isActive: true,
       OR: [
         { website: null },
         { website: "" },
@@ -170,6 +211,8 @@ export const syncCompaniesForTechPark = async (
     discovered: discoveredCompanies.length,
     created: createdCount,
     updated: updatedCount,
+    reactivated: reactivatedCount,
+    markedInactive: markedInactiveCount,
   };
 };
 
@@ -195,6 +238,11 @@ export const enrichCompaniesForTechPark = async (
     photo_reference: string | null;
     locationLat: number | null;
     locationLng: number | null;
+    linkedin_url: string | null;
+    twitter_url: string | null;
+    facebook_url: string | null;
+    instagram_url: string | null;
+    crunchbase_url: string | null;
   }> = await (prismaInstance as any).techParkCompany.findMany({
     where: {
       newTechParkId: techPark.id,
@@ -218,6 +266,11 @@ export const enrichCompaniesForTechPark = async (
       photo_reference: true,
       locationLat: true,
       locationLng: true,
+      linkedin_url: true,
+      twitter_url: true,
+      facebook_url: true,
+      instagram_url: true,
+      crunchbase_url: true,
     },
   });
 
@@ -244,6 +297,11 @@ export const enrichCompaniesForTechPark = async (
     if (!company.map_url && enriched.map_url) updateData.map_url = enriched.map_url;
     if (!company.plus_code && enriched.plus_code) updateData.plus_code = enriched.plus_code;
     if (!company.photo_reference && enriched.photo_reference) updateData.photo_reference = enriched.photo_reference;
+    if (!company.linkedin_url && enriched.linkedin_url) updateData.linkedin_url = enriched.linkedin_url;
+    if (!company.twitter_url && enriched.twitter_url) updateData.twitter_url = enriched.twitter_url;
+    if (!company.facebook_url && enriched.facebook_url) updateData.facebook_url = enriched.facebook_url;
+    if (!company.instagram_url && enriched.instagram_url) updateData.instagram_url = enriched.instagram_url;
+    if (!company.crunchbase_url && enriched.crunchbase_url) updateData.crunchbase_url = enriched.crunchbase_url;
 
     const structuredUpdateData: Record<string, unknown> = { ...updateData };
     if ((company.rating === null || company.rating === undefined) && typeof enriched.rating === "number") {
@@ -316,24 +374,50 @@ export const runTechParkCompanySync = async () => {
   let discovered = 0;
   let created = 0;
   let updated = 0;
+  let reactivated = 0;
+  let markedInactive = 0;
+  let enrichmentProcessed = 0;
+  let enrichmentUpdated = 0;
+  let enrichmentFailed = 0;
 
   for (const techPark of techParks) {
     if (!techPark.place_id) {
       continue;
     }
 
+    const target = { ...techPark, place_id: techPark.place_id };
+
     try {
-      const result = await syncCompaniesForTechPark({
-        ...techPark,
-        place_id: techPark.place_id,
-      });
+      const result = await syncCompaniesForTechPark(target);
       processed++;
       discovered += result.discovered;
       created += result.created;
       updated += result.updated;
+      reactivated += result.reactivated;
+      markedInactive += result.markedInactive;
     } catch (error) {
       failed++;
       logOperationalEvent("techpark.company_sync.techpark_failed", {
+        techParkId: techPark.id,
+        techParkName: techPark.name,
+        error: error instanceof Error ? error.message : String(error),
+      }, "warn");
+      // If discovery itself failed, there's nothing new to enrich for this park —
+      // skip straight to the next one instead of enriching stale data.
+      continue;
+    }
+
+    // Website/social-media/contact enrichment used to only run when someone
+    // clicked "Discover Companies" in the UI. It now runs automatically as part
+    // of the same nightly pass, right after discovery, so newly-found companies
+    // get enriched without anyone having to remember to trigger it by hand.
+    try {
+      const enrichResult = await enrichCompaniesForTechPark(target);
+      enrichmentProcessed += enrichResult.processed;
+      enrichmentUpdated += enrichResult.updated;
+    } catch (error) {
+      enrichmentFailed++;
+      logOperationalEvent("techpark.company_sync.enrichment_failed", {
         techParkId: techPark.id,
         techParkName: techPark.name,
         error: error instanceof Error ? error.message : String(error),
@@ -347,6 +431,11 @@ export const runTechParkCompanySync = async () => {
     discovered,
     created,
     updated,
+    reactivated,
+    markedInactive,
+    enrichmentProcessed,
+    enrichmentUpdated,
+    enrichmentFailed,
   });
 };
 

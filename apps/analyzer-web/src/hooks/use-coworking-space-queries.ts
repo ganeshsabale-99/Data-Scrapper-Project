@@ -205,6 +205,36 @@ export const useUnverifyCoworkingSpace = () => {
   });
 };
 
+export const useAssignCoworkingSpace = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => coworkingSpaceService.assignCoworkingSpace(id),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: coworkingSpaceKeys.all });
+      toast.success(response?.message || "Assigned to you");
+    },
+    onError: (error: unknown) => {
+      toast.error(readApiErrorMessage(error, "Failed to assign coworking space"));
+    },
+  });
+};
+
+export const useUnassignCoworkingSpace = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => coworkingSpaceService.unassignCoworkingSpace(id),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: coworkingSpaceKeys.all });
+      toast.success(response?.message || "Unassigned");
+    },
+    onError: (error: unknown) => {
+      toast.error(readApiErrorMessage(error, "Failed to unassign coworking space"));
+    },
+  });
+};
+
 // Company mutations
 export const useAddCompanyToCoworkingSpace = () => {
   const queryClient = useQueryClient();

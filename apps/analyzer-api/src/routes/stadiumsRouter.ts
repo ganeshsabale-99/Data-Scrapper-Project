@@ -11,6 +11,8 @@ import {
   changeStatus,
   verifyVenue,
   unverifyVenue,
+  assignVenue,
+  unassignVenue,
 } from "../controller/stadiumController";
 import { triggerStadiumScrape, getStadiumScrapeStatus } from "../controller/stadiumScraperController";
 
@@ -33,3 +35,5 @@ stadiumsRouter.patch("/:id", authenticateToken, canManage, updateVenue);
 stadiumsRouter.delete("/:id", authenticateToken, canManage, deleteVenue);
 stadiumsRouter.post("/:id/verify", authenticateToken, canVerify, verifyVenue);
 stadiumsRouter.post("/:id/unverify", authenticateToken, canVerify, unverifyVenue);
+stadiumsRouter.post("/:id/assign", authenticateToken, canManage, assignVenue);
+stadiumsRouter.post("/:id/unassign", authenticateToken, canManage, unassignVenue);

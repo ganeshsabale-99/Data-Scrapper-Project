@@ -329,6 +329,42 @@ export const useUnverifyTechPark = () => {
   });
 };
 
+export const useAssignTechPark = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => techParkService.assignTechPark(id),
+    onError: (error: unknown) => {
+      toast.error(readApiErrorMessage(error, "Failed to assign tech park"));
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: techParkKeys.all });
+      toast.success(response?.message || "Assigned to you");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: techParkKeys.all });
+    },
+  });
+};
+
+export const useUnassignTechPark = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => techParkService.unassignTechPark(id),
+    onError: (error: unknown) => {
+      toast.error(readApiErrorMessage(error, "Failed to unassign tech park"));
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: techParkKeys.all });
+      toast.success(response?.message || "Unassigned");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: techParkKeys.all });
+    },
+  });
+};
+
 export const useVerifyAllUnverifiedInCity = () => {
   const queryClient = useQueryClient();
 

@@ -25,6 +25,10 @@ import {
   verifyCoworkingSpaceDetails,
   unverifyCoworkingSpaceDetails,
 } from "../controller/coworkingSpaceController";
+import {
+  assignCoworkingSpace,
+  unassignCoworkingSpace,
+} from "../controller/venueAssignmentController";
 
 export const coworkingSpacesRouter: Router = Router();
 
@@ -99,6 +103,20 @@ coworkingSpacesRouter.post(
   authenticateToken,
   checkPermission(["COWORKING.VERIFY", "COWORKING.MANAGE"], { mode: "any" }),
   unverifyCoworkingSpaceDetails,
+);
+
+coworkingSpacesRouter.post(
+  "/:id/assign",
+  authenticateToken,
+  canManageCoworking,
+  assignCoworkingSpace,
+);
+
+coworkingSpacesRouter.post(
+  "/:id/unassign",
+  authenticateToken,
+  canManageCoworking,
+  unassignCoworkingSpace,
 );
 
 coworkingSpacesRouter.get(

@@ -2,71 +2,63 @@ import { Request, Response } from "express";
 import { getAllIndiaAirports } from "../libs/getAllIndiaAirports";
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
 import { logOperationalEvent } from "../libs/serviceHealthLogger";
+import { getActiveScrapeJob, startScrapeJob, completeScrapeJob, failScrapeJob } from "../libs/scrapeJobService";
 
-let isAirportScrapeRunning = false;
-let currentJobId: string | null = null;
-let lastJobStartedAt: string | null = null;
+const VENUE_TYPE = "airport" as const;
 
 export const triggerAirportScrape = async (req: Request, res: Response) => {
   try {
-    if (isAirportScrapeRunning) {
+    const activeJob = await getActiveScrapeJob(VENUE_TYPE);
+    if (activeJob) {
       return res.status(409).json({
         success: false,
         message: "An airport scrape is already in progress.",
-        jobId: currentJobId,
-        startedAt: lastJobStartedAt,
+        jobId: activeJob.id,
+        startedAt: activeJob.startedAt,
       });
     }
 
-    const jobId = `airport-scrape-${Date.now()}`;
-    isAirportScrapeRunning = true;
-    currentJobId = jobId;
-    lastJobStartedAt = new Date().toISOString();
-
     const testMode = Boolean(req.body?.testMode);
-    const cityFilter =
-      typeof req.body?.cityFilter === "string" && req.body.cityFilter.trim()
-        ? req.body.cityFilter.trim()
-        : undefined;
+    const cityFilter = typeof req.body?.cityFilter === "string" && req.body.cityFilter.trim()
+      ? req.body.cityFilter.trim()
+      : undefined;
 
-    logOperationalEvent("airport.scrape.triggered", { jobId, triggeredBy: req.user?.userId, testMode, cityFilter });
+    const job = await startScrapeJob(VENUE_TYPE, { triggeredBy: req.user?.userId, testMode, cityFilter });
+
+    logOperationalEvent("airport.scrape.triggered", { jobId: job.id, triggeredBy: req.user?.userId, testMode, cityFilter });
 
     void getAllIndiaAirports({ testMode, cityFilter })
-      .then(() => { logOperationalEvent("airport.scrape.finished", { jobId }); })
-      .catch((error) => {
-        logOperationalEvent(
-          "airport.scrape.background_failed",
-          { jobId, error: error instanceof Error ? error.message : String(error) },
-          "warn",
-        );
+      .then((result) => {
+        void completeScrapeJob(job.id, result);
+        logOperationalEvent("airport.scrape.finished", { jobId: job.id, ...result });
       })
-      .finally(() => {
-        isAirportScrapeRunning = false;
-        currentJobId = null;
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        void failScrapeJob(job.id, message);
+        logOperationalEvent("airport.scrape.background_failed", { jobId: job.id, error: message }, "warn");
       });
 
     return res.status(202).json({
       success: true,
       message: "Airport scrape started in background.",
-      jobId,
-      startedAt: lastJobStartedAt,
+      jobId: job.id,
+      startedAt: job.startedAt,
       testMode,
       cityFilter: cityFilter ?? null,
     });
   } catch (error) {
-    isAirportScrapeRunning = false;
-    currentJobId = null;
     return sendSafeErrorResponse(res, error, "airportScraper.triggerAirportScrape", "Failed to trigger airport scrape");
   }
 };
 
 export const getAirportScrapeStatus = async (_req: Request, res: Response) => {
   try {
+    const activeJob = await getActiveScrapeJob(VENUE_TYPE);
     return res.status(200).json({
       success: true,
-      isRunning: isAirportScrapeRunning,
-      jobId: currentJobId,
-      lastStartedAt: lastJobStartedAt,
+      isRunning: Boolean(activeJob),
+      jobId: activeJob?.id ?? null,
+      lastStartedAt: activeJob?.startedAt ?? null,
     });
   } catch (error) {
     return sendSafeErrorResponse(res, error, "airportScraper.getAirportScrapeStatus", "Failed to fetch airport scrape status");

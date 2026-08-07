@@ -264,6 +264,16 @@ export const coworkingSpaceService = {
     return response.data;
   },
 
+  async assignCoworkingSpace(id: string, userId?: string) {
+    const response = await axiosInstance.post(`/coworking-spaces/${id}/assign`, userId ? { userId } : {});
+    return response.data;
+  },
+
+  async unassignCoworkingSpace(id: string) {
+    const response = await axiosInstance.post(`/coworking-spaces/${id}/unassign`);
+    return response.data;
+  },
+
   // Company Management
   async getCompaniesByCoworkingSpace(
     coworkingSpaceId: string,

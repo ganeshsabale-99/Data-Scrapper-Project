@@ -19,8 +19,14 @@ export const scrapeInc42 = async () => {
             author?: string;
             date?: string;
         }[] = [];
+        const seenLinks = new Set<string>();
 
-        $("h3 a").each((_, el) => {
+        // The site has changed which heading level wraps each post link before
+        // (h3 → h2) without warning — matching both makes this resilient to that
+        // happening again instead of silently returning zero results. A post can
+        // legitimately show up under both (e.g. a "latest" widget vs. the main
+        // list), so dedupe by link.
+        $("h2 a, h3 a").each((_, el) => {
             const title = $(el).text().trim();
             const relativeLink = $(el).attr("href");
 
@@ -29,6 +35,8 @@ export const scrapeInc42 = async () => {
             const link = relativeLink.startsWith("http")
                 ? relativeLink
                 : `https://inc42.com${relativeLink}`;
+
+            if (seenLinks.has(link)) return;
 
             const lowerTitle = title.toLowerCase();
             const isFundingNews =
@@ -46,6 +54,7 @@ export const scrapeInc42 = async () => {
 
             if (!isFundingNews) return;
 
+            seenLinks.add(link);
             const author = "Inc42";
             const date = "";
 

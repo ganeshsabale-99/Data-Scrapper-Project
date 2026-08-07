@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft, Edit, Phone, Mail, MapPin, Building, Star, Globe, Clock, Trash, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Edit, Phone, Mail, MapPin, Building, Star, Globe, Clock, Trash, RefreshCw, Linkedin, Twitter, Facebook, Instagram } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -18,6 +18,10 @@ type CompanyDetailsRecord = {
   description?: string;
   opening_hours?: string | string[];
   website?: string;
+  linkedin_url?: string;
+  twitter_url?: string;
+  facebook_url?: string;
+  instagram_url?: string;
   rating?: number;
   total_ratings?: number;
   business_status?: string;
@@ -85,6 +89,15 @@ export function CompanyDetails({
     { icon: Clock, label: 'Business Status', value: company.business_status || 'N/A' },
     { icon: MapPin, label: 'City', value: company.city || 'N/A' },
   ];
+
+  // Social links only show up once found — no point cluttering the card with
+  // four more "N/A" rows for data that's frequently unavailable.
+  const socialItems = [
+    { icon: Linkedin, label: 'LinkedIn', value: company.linkedin_url },
+    { icon: Twitter, label: 'Twitter / X', value: company.twitter_url },
+    { icon: Facebook, label: 'Facebook', value: company.facebook_url },
+    { icon: Instagram, label: 'Instagram', value: company.instagram_url },
+  ].filter((item): item is typeof item & { value: string } => Boolean(item.value));
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -299,6 +312,42 @@ export function CompanyDetails({
               </div>
             </CardContent>
           </Card>
+
+          {socialItems.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Social Media</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  {socialItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <div
+                        key={item.label}
+                        className="flex items-start gap-3 p-3 rounded-lg border"
+                      >
+                        <div className="text-muted-foreground flex-shrink-0 mt-0.5">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-muted-foreground mb-1">{item.label}</p>
+                          <a
+                            href={item.value}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-700 hover:underline break-words block text-sm"
+                          >
+                            {item.value}
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {company.description && (
             <Card>

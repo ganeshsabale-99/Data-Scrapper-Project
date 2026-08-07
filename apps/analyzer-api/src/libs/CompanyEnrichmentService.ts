@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 // import { PrismaClient } from '@prisma/client'; // Removed
 import { prismaInstance } from '@repo/db';
 import { logOperationalEvent } from "./serviceHealthLogger";
+import { parseBooleanEnv } from "../utils/envUtils";
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -11,6 +12,12 @@ dotenv.config();
 const GOOGLE_SEARCH_API_KEY = process.env.GOOGLE_SEARCH_API_KEY; // Need to add to env
 const GOOGLE_SEARCH_CX = process.env.GOOGLE_SEARCH_CX; // Need to add to env
 const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY;
+// The no-API-key fallback scrapes DuckDuckGo/Bing directly with cheerio. In practice
+// this has been observed to fail 100% of the time (every request times out) while
+// still taking ~12s x up to 8 requests per company — slow enough to exhaust a
+// serverless Postgres connection mid-sync. Off by default until GOOGLE_SEARCH_API_KEY
+// is configured; set ENRICHMENT_WEB_FALLBACK_ENABLED=true to opt back in.
+const WEB_FALLBACK_ENABLED = parseBooleanEnv(process.env.ENRICHMENT_WEB_FALLBACK_ENABLED, false);
 const DEFAULT_HEADERS = {
     "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -211,6 +218,11 @@ export class CompanyEnrichmentService {
         locationHint?: string,
         addressHint?: string,
     ): Promise<EnrichedCompanyData> {
+        if (!WEB_FALLBACK_ENABLED) {
+            logOperationalEvent("enrichment.search.fallback_skipped", { companyName });
+            return {};
+        }
+
         const data: EnrichedCompanyData = {};
         const queries = [
             this.normalizeCompanyQuery(companyName, addressHint, locationHint),
@@ -227,10 +239,12 @@ export class CompanyEnrichmentService {
                 `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
             ];
 
-            for (const searchUrl of searchUrls) {
+            // Run both search engines for this query concurrently rather than
+            // sequentially — halves the worst-case wall-clock time per query.
+            await Promise.all(searchUrls.map(async (searchUrl) => {
                 try {
                     const response = await axios.get(searchUrl, {
-                        timeout: 12000,
+                        timeout: 6000,
                         headers: DEFAULT_HEADERS,
                         responseType: "text",
                     });
@@ -250,7 +264,10 @@ export class CompanyEnrichmentService {
                         error: (error as Error).message,
                     }, "warn");
                 }
-            }
+            }));
+
+            // Already have viable candidates — no need to burn time on more query variants.
+            if (collectedCandidates.size >= 4) break;
         }
 
         const rankedCandidates = await Promise.all(
@@ -314,7 +331,7 @@ export class CompanyEnrichmentService {
 
             for (const item of items) {
                 const link = item.link as string;
-                if (!link) continue;
+                if (!link || /\b(intent\/tweet|sharer|share\.php|dialog\/(feed|share))\b/i.test(link)) continue;
 
                 // Identify Socials
                 if (link.includes('linkedin.com/company/')) data.linkedin_url = link;
@@ -368,10 +385,16 @@ export class CompanyEnrichmentService {
                 if (validEmails.length > 0) data.email = validEmails[0]; // Take the first valid one
             }
 
-            // Social links on homepage
+            // Social links on homepage. Corporate sites are full of "share this page"
+            // widgets pointing at twitter.com/facebook.com/etc — those look like a
+            // real profile link by domain alone but are share actions, not the
+            // company's own profile, so they're explicitly excluded below.
+            const isShareWidgetLink = (href: string): boolean =>
+                /\b(intent\/tweet|share|sharer|share\.php|dialog\/(feed|share))\b/i.test(href);
+
             $('a[href]').each((_, el) => {
                 const href = $(el).attr('href');
-                if (!href) return;
+                if (!href || isShareWidgetLink(href)) return;
 
                 if (href.includes('linkedin.com/company') && !data.linkedin_url) data.linkedin_url = href;
                 if ((href.includes('twitter.com') || href.includes('x.com')) && !data.twitter_url) data.twitter_url = href;
@@ -559,6 +582,11 @@ export class CompanyEnrichmentService {
         address?: string;
         locationLat?: number;
         locationLng?: number;
+        linkedin_url?: string;
+        twitter_url?: string;
+        facebook_url?: string;
+        instagram_url?: string;
+        crunchbase_url?: string;
     }> {
         const addressHint = company.address || undefined;
         const webData = await this.findCompanyWebPresence(company.name, locationHint, addressHint);
@@ -598,6 +626,14 @@ export class CompanyEnrichmentService {
             address: mapsData.address_line,
             locationLat: mapsData.locationLat,
             locationLng: mapsData.locationLng,
+            // Prefer links scraped directly off the company's own site (siteData) over
+            // ones guessed from search results (webData) — the site is verified, the
+            // search result is a heuristic match.
+            linkedin_url: siteData.linkedin_url || webData.linkedin_url,
+            twitter_url: siteData.twitter_url || webData.twitter_url,
+            facebook_url: siteData.facebook_url || webData.facebook_url,
+            instagram_url: siteData.instagram_url || webData.instagram_url,
+            crunchbase_url: webData.crunchbase_url,
         };
     }
 }

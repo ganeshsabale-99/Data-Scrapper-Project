@@ -4,6 +4,7 @@ import { triggerManualScraping } from "../libs/newsScheduler";
 import { getQueryString } from "../utils/queryUtils";
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
 import { scrapeCompanyDetails, extractCompanyNameSmart } from "../libs/scrapeCompanyDetails";
+import { getActiveScrapeJob } from "../libs/scrapeJobService";
 
 const sendFundingSafeError = (
   res: Response,
@@ -198,13 +199,24 @@ export const triggerScraping = async (
   next: NextFunction
 ) => {
   try {
-    await triggerManualScraping();
+    const activeJob = await getActiveScrapeJob("fundingNews");
+    if (activeJob) {
+      return res.status(409).json({
+        message: "A funding news scrape is already in progress.",
+        jobId: activeJob.id,
+        startedAt: activeJob.startedAt,
+      });
+    }
 
-    const totalCount = await prismaInstance.fundingNews.count();
+    // Fire-and-forget: with AI extraction now running per new article, a full
+    // pass across all 6 sources can take a while — awaiting it here would risk
+    // the request timing out at the client/proxy before the pipeline finishes.
+    void triggerManualScraping().catch((error) => {
+      console.error("Background funding news scrape failed:", error);
+    });
 
-    return res.status(200).json({
-      message: "Scraping completed successfully",
-      totalArticles: totalCount
+    return res.status(202).json({
+      message: "Funding news scraping started in background.",
     });
   } catch (error: any) {
     return sendFundingSafeError(

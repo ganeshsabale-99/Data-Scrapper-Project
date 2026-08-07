@@ -1,5 +1,5 @@
-import axios from "axios";
 import { logOperationalEvent } from "./serviceHealthLogger";
+import { fetchGooglePlaces, GooglePlacesRequestError } from "./googlePlacesClient";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
 
@@ -126,13 +126,13 @@ async function fetchAllPlacesForQuery(query: string): Promise<any[]> {
     const params: Record<string, string> = { key: API_KEY, query };
     if (pageToken) params.pagetoken = pageToken;
 
-    const resp = await axios.get(
+    const data = await fetchGooglePlaces(
       "https://maps.googleapis.com/maps/api/place/textsearch/json",
-      { params },
+      params,
     );
 
-    if (resp.data.results) results.push(...resp.data.results);
-    pageToken = resp.data.next_page_token;
+    if (data.results) results.push(...data.results);
+    pageToken = data.next_page_token;
     // Google requires ~2 s before next_page_token becomes valid
     if (pageToken) await sleep(2000);
   } while (pageToken);
@@ -140,10 +140,17 @@ async function fetchAllPlacesForQuery(query: string): Promise<any[]> {
   return results;
 }
 
+export interface VenueScraperResult {
+  totalFound: number;
+  saved: number;
+  skipped: number;
+  failed: number;
+}
+
 export async function runVenueScraper(
   config: VenueScraperConfig,
   options: VenueSearchOptions,
-): Promise<void> {
+): Promise<VenueScraperResult> {
   const { testMode = false, cityFilter } = options;
   const { logPrefix, keywords, isLikelyVenue, upsertVenue } = config;
 
@@ -155,7 +162,7 @@ export async function runVenueScraper(
 
   if (citiesToSearch.length === 0) {
     console.error(`No matching city found for filter: "${cityFilter}"`);
-    return;
+    return { totalFound: 0, saved: 0, skipped: 0, failed: 0 };
   }
 
   const allPlacesMap = new Map<string, { place: any; searchCity: string; searchState: string }>();
@@ -181,6 +188,10 @@ export async function runVenueScraper(
             }
           }
         } catch (error) {
+          // A non-retryable Google error (bad key, malformed request) fails
+          // identically for every remaining query in this scrape — abort now
+          // instead of burning through hundreds of doomed requests.
+          if (error instanceof GooglePlacesRequestError) throw error;
           console.error(`Error searching "${query}":`, error);
         }
         await sleep(300);
@@ -198,6 +209,7 @@ export async function runVenueScraper(
             }
           }
         } catch (error) {
+          if (error instanceof GooglePlacesRequestError) throw error;
           console.error(`Error searching "${query}":`, error);
         }
         await sleep(300);
@@ -225,6 +237,7 @@ export async function runVenueScraper(
           }
         }
       } catch (error) {
+        if (error instanceof GooglePlacesRequestError) throw error;
         console.error(`Error in national pass "${query}":`, error);
       }
       await sleep(300);
@@ -243,33 +256,31 @@ export async function runVenueScraper(
   for (const [placeId, { place: _place, searchCity, searchState }] of allPlacesMap) {
     processed++;
     try {
-      const detailsResp = await axios.get(
+      const detailsData = await fetchGooglePlaces(
         "https://maps.googleapis.com/maps/api/place/details/json",
         {
-          params: {
-            key: API_KEY,
-            place_id: placeId,
-            fields: [
-              "name",
-              "formatted_address",
-              "geometry",
-              "website",
-              "formatted_phone_number",
-              "international_phone_number",
-              "rating",
-              "user_ratings_total",
-              "types",
-              "business_status",
-              "url",
-              "address_components",
-              "photos",
-              "reviews",
-            ].join(","),
-          },
+          key: API_KEY,
+          place_id: placeId,
+          fields: [
+            "name",
+            "formatted_address",
+            "geometry",
+            "website",
+            "formatted_phone_number",
+            "international_phone_number",
+            "rating",
+            "user_ratings_total",
+            "types",
+            "business_status",
+            "url",
+            "address_components",
+            "photos",
+            "reviews",
+          ].join(","),
         },
       );
 
-      const details = detailsResp.data.result;
+      const details = detailsData.result;
       if (!details) {
         skipped++;
         continue;
@@ -313,6 +324,10 @@ export async function runVenueScraper(
       await upsertVenue(data, searchCity, addrComponents.state || searchState);
       saved++;
     } catch (error) {
+      // Same reasoning as the search phase: a non-retryable Google error will
+      // fail identically for every remaining place — abort instead of grinding
+      // through the whole list logging the same failure hundreds of times.
+      if (error instanceof GooglePlacesRequestError) throw error;
       failed++;
       console.error(`Failed to process place ${placeId}:`, error);
     }
@@ -338,4 +353,6 @@ export async function runVenueScraper(
   console.log(`  Saved:        ${saved}`);
   console.log(`  Skipped:      ${skipped}`);
   console.log(`  Failed:       ${failed}`);
+
+  return { totalFound: allPlacesMap.size, saved, skipped, failed };
 }

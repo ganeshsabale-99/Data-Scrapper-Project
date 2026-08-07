@@ -19,16 +19,43 @@ export const scrapeTechCrunch = async () => {
             author?: string;
             date?: string;
         }[] = [];
+        const seenLinks = new Set<string>();
 
-        $("h3 a").each((_, el) => {
+        // "category/startups/funding/" isn't purely funding news — TechCrunch mixes
+        // in event-ticket promos (TC Disrupt, etc.) on the same listing. A keyword
+        // filter on the title, same idea as the Inc42/ETStartup scrapers, keeps
+        // those out instead of ingesting them as if they were real funding stories.
+        const isFundingNews = (title: string): boolean => {
+            const lowerTitle = title.toLowerCase();
+            return (
+                lowerTitle.includes("raise") ||
+                lowerTitle.includes("raises") ||
+                lowerTitle.includes("funding") ||
+                lowerTitle.includes("invest") ||
+                lowerTitle.includes("secures") ||
+                lowerTitle.includes("capital") ||
+                lowerTitle.includes("series ") ||
+                lowerTitle.includes("valuation") ||
+                lowerTitle.includes("fund") ||
+                lowerTitle.includes("seed round") ||
+                lowerTitle.includes("acquire") ||
+                lowerTitle.includes("acquisition") ||
+                lowerTitle.includes("merger")
+            );
+        };
+
+        $("h2 a, h3 a").each((_, el) => {
             const title = $(el).text().trim();
             const relativeLink = $(el).attr("href");
 
-            if (!title || !relativeLink) return;
+            if (!title || !relativeLink || !isFundingNews(title)) return;
 
             const link = relativeLink.startsWith("http")
                 ? relativeLink
                 : `https://techcrunch.com${relativeLink}`;
+
+            if (seenLinks.has(link)) return;
+            seenLinks.add(link);
 
             const container = $(el).closest("div");
             const author = container.find("a[href*='/author/']").text().trim() || "";

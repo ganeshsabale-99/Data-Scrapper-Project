@@ -44,6 +44,10 @@ import {
   triggerTechParkScrape,
   getTechParkScrapeStatus,
 } from "../controller/techParkScraperController";
+import {
+  assignTechPark,
+  unassignTechPark,
+} from "../controller/venueAssignmentController";
 
 export const newTechparksRouter: Router = Router();
 
@@ -178,6 +182,18 @@ newTechparksRouter.post(
   authenticateToken,
   canVerifyTechParks,
   rejectTechParkDetails,
+);
+newTechparksRouter.post(
+  "/:id/assign",
+  authenticateToken,
+  canManageTechParks,
+  assignTechPark,
+);
+newTechparksRouter.post(
+  "/:id/unassign",
+  authenticateToken,
+  canManageTechParks,
+  unassignTechPark,
 );
 newTechparksRouter.post(
   "/:id/enrich-website-details",

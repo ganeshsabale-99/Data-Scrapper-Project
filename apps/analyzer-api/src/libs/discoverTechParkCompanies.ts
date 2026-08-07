@@ -1,4 +1,4 @@
-import axios from "axios";
+import { fetchGooglePlaces, GooglePlacesRequestError } from "./googlePlacesClient";
 
 type DiscoverableTechPark = {
   place_id: string;
@@ -202,6 +202,8 @@ export async function discoverTechParkCompanies(
   ];
 
   const candidateMap = new Map<string, any>();
+  let nonRetryableError: GooglePlacesRequestError | null = null;
+  let anyQuerySucceeded = false;
 
   for (const query of queries) {
     try {
@@ -211,8 +213,9 @@ export async function discoverTechParkCompanies(
         params.radius = "1500";
       }
 
-      const response = await axios.get(GOOGLE_PLACES_TEXT_SEARCH_URL, { params });
-      const results = Array.isArray(response.data?.results) ? response.data.results : [];
+      const data = await fetchGooglePlaces(GOOGLE_PLACES_TEXT_SEARCH_URL, params);
+      anyQuerySucceeded = true;
+      const results = Array.isArray(data?.results) ? data.results : [];
 
       for (const result of results) {
         if (!result?.place_id || result.place_id === park.place_id) {
@@ -225,39 +228,49 @@ export async function discoverTechParkCompanies(
           candidateMap.set(result.place_id, result);
         }
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof GooglePlacesRequestError) {
+        nonRetryableError = error;
+      }
       continue;
     }
+  }
+
+  // If every single query failed with a non-retryable error (bad key, malformed
+  // request), this is NOT "zero companies found" — it's a broken search. Throwing
+  // here matters: the caller uses an empty result to mark previously-discovered
+  // companies as no-longer-present, and doing that off a failed search would
+  // wrongly flag every real company at once.
+  if (!anyQuerySucceeded && nonRetryableError) {
+    throw nonRetryableError;
   }
 
   const discoveredCompanies = await Promise.all(
     Array.from(candidateMap.values()).map(async (candidate): Promise<DiscoveredTechParkCompany | null> => {
       try {
-        const detailsResponse = await axios.get(GOOGLE_PLACES_DETAILS_URL, {
-          params: {
-            key: apiKey,
-            place_id: candidate.place_id,
-            fields: [
-              "place_id",
-              "name",
-              "formatted_address",
-              "geometry",
-              "website",
-              "formatted_phone_number",
-              "international_phone_number",
-              "opening_hours",
-              "rating",
-              "user_ratings_total",
-              "types",
-              "business_status",
-              "plus_code",
-              "url",
-              "photos",
-            ].join(","),
-          },
+        const detailsData = await fetchGooglePlaces(GOOGLE_PLACES_DETAILS_URL, {
+          key: apiKey,
+          place_id: candidate.place_id,
+          fields: [
+            "place_id",
+            "name",
+            "formatted_address",
+            "geometry",
+            "website",
+            "formatted_phone_number",
+            "international_phone_number",
+            "opening_hours",
+            "rating",
+            "user_ratings_total",
+            "types",
+            "business_status",
+            "plus_code",
+            "url",
+            "photos",
+          ].join(","),
         });
 
-        const details = detailsResponse.data?.result;
+        const details = detailsData?.result;
         if (!details || !isLikelyTenantResult(park, details)) {
           return null;
         }

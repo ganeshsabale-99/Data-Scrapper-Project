@@ -11,6 +11,8 @@ import {
   changeStatus,
   verifyVenue,
   unverifyVenue,
+  assignVenue,
+  unassignVenue,
 } from "../controller/hospitalController";
 import { triggerHospitalScrape, getHospitalScrapeStatus } from "../controller/hospitalScraperController";
 
@@ -33,3 +35,5 @@ hospitalsRouter.patch("/:id", authenticateToken, canManage, updateVenue);
 hospitalsRouter.delete("/:id", authenticateToken, canManage, deleteVenue);
 hospitalsRouter.post("/:id/verify", authenticateToken, canVerify, verifyVenue);
 hospitalsRouter.post("/:id/unverify", authenticateToken, canVerify, unverifyVenue);
+hospitalsRouter.post("/:id/assign", authenticateToken, canManage, assignVenue);
+hospitalsRouter.post("/:id/unassign", authenticateToken, canManage, unassignVenue);

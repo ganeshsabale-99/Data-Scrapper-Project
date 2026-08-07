@@ -306,3 +306,39 @@ export const useUnverifyGenericVenue = () => {
     },
   });
 };
+
+export const useAssignGenericVenue = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ venuePath, id }: { venuePath: VenueSegment; id: string }) =>
+      VENUE_SERVICES[venuePath].assignVenue(id),
+    onError: (error: unknown) => {
+      toast.error(readApiErrorMessage(error, "Failed to assign"));
+    },
+    onSuccess: (res, vars) => {
+      queryClient.invalidateQueries({ queryKey: [vars.venuePath] });
+      toast.success(res?.message || "Assigned to you");
+    },
+    onSettled: (_, __, vars) => {
+      queryClient.invalidateQueries({ queryKey: [vars.venuePath] });
+    },
+  });
+};
+
+export const useUnassignGenericVenue = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ venuePath, id }: { venuePath: VenueSegment; id: string }) =>
+      VENUE_SERVICES[venuePath].unassignVenue(id),
+    onError: (error: unknown) => {
+      toast.error(readApiErrorMessage(error, "Failed to unassign"));
+    },
+    onSuccess: (res, vars) => {
+      queryClient.invalidateQueries({ queryKey: [vars.venuePath] });
+      toast.success(res?.message || "Unassigned");
+    },
+    onSettled: (_, __, vars) => {
+      queryClient.invalidateQueries({ queryKey: [vars.venuePath] });
+    },
+  });
+};

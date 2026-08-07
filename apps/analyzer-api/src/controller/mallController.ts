@@ -14,4 +14,6 @@ export const {
   changeStatus,
   verifyVenue,
   unverifyVenue,
+  assignVenue,
+  unassignVenue,
 } = ctrl;

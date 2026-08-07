@@ -3,10 +3,11 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Re-using the same key if available, or we might need a separate one.
-// Assuming GOOGLE_API_KEY is robust enough for this.
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "");
+// gemini-1.5-flash 404s against this API key/project — gemini-2.0-flash is the
+// model actually available and used successfully elsewhere in this codebase
+// (scrapeCompanyDetails.ts).
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 export interface DetailedFundingInfo {
     company_name: string | null;

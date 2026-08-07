@@ -56,6 +56,7 @@ type TechParkCompanyRecord = {
   contact_international_phone?: string;
   city?: string;
   serialNumber?: number;
+  isActive?: boolean;
 };
 
 type TechParkCompanyDraft = {
@@ -214,6 +215,7 @@ export default function TechParkDetailsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDiscoveringCompanies, setIsDiscoveringCompanies] = useState(false);
+  const [showRemovedCompanies, setShowRemovedCompanies] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [pagination, setPagination] = useState<{
@@ -306,7 +308,7 @@ export default function TechParkDetailsPage() {
 
   const reloadCompanies = async (search = searchTerm || undefined) => {
     if (!id) return;
-    const response = await techParkService.getCompaniesByTechPark(id, page, pageSize, search);
+    const response = await techParkService.getCompaniesByTechPark(id, page, pageSize, search, showRemovedCompanies);
     applyCompanyListResponse(response as CompanyListResponse);
   };
 
@@ -383,6 +385,7 @@ export default function TechParkDetailsPage() {
           page,
           pageSize,
           searchTerm || undefined,
+          showRemovedCompanies,
         );
         applyCompanyListResponse(companiesResp as CompanyListResponse);
       } catch (error: unknown) {
@@ -395,7 +398,7 @@ export default function TechParkDetailsPage() {
     };
 
     loadCompanies();
-  }, [id, page, pageSize, searchTerm, refreshTick]);
+  }, [id, page, pageSize, searchTerm, showRemovedCompanies, refreshTick]);
 
   // Note: calculateStats function removed as we now use server-side stats
 
@@ -482,8 +485,11 @@ export default function TechParkDetailsPage() {
       await reloadCompanies(searchTerm || undefined);
       queryClient.invalidateQueries({ queryKey: techParkKeys.all });
 
+      const removedCount = summary?.markedInactive || 0;
       toast.success(
-        `Fetched companies: ${summary?.created || 0} added, ${summary?.updated || 0} updated.`,
+        `Fetched companies: ${summary?.created || 0} new, ${summary?.updated || 0} updated` +
+          (removedCount > 0 ? `, ${removedCount} no longer found` : "") +
+          ".",
       );
     } catch (error: unknown) {
       const errorMsg = getApiErrorMessage(error, "Failed to fetch companies for this tech park");
@@ -988,16 +994,30 @@ export default function TechParkDetailsPage() {
                 onChange={setSearchTerm}
                 className="w-full sm:max-w-md"
               />
-              {searchTerm && (
-                <div className="text-sm text-muted-foreground text-center sm:text-right">
-                  {pagination.totalItems} results
-                </div>
-              )}
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={showRemovedCompanies}
+                    onChange={(e) => {
+                      setShowRemovedCompanies(e.target.checked);
+                      setPage(1);
+                    }}
+                    className="h-4 w-4 rounded border-slate-300"
+                  />
+                  Show removed companies
+                </label>
+                {searchTerm && (
+                  <div className="text-sm text-muted-foreground text-center sm:text-right">
+                    {pagination.totalItems} results
+                  </div>
+                )}
+              </div>
             </div>
             <LocationTable
               data={pagedCompanies.map((co) => ({
                 id: co.id,
-                name: co.name || "",
+                name: co.isActive === false ? `${co.name || ""} (Removed)` : (co.name || ""),
                 address: co.address || '',
                 website: co.website || '',
                 rating: typeof co.rating === "number" ? co.rating : Number(co.rating || 0),

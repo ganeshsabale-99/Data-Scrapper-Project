@@ -19,6 +19,8 @@ import {
   RefreshCw,
   CheckCircle2,
   XCircle,
+  UserPlus,
+  UserMinus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -65,6 +67,8 @@ export type Location = {
   hasVerificationProgress?: boolean;
   verifiedAt?: string | null;
   verifiedByName?: string | null;
+  ownerId?: string | null;
+  ownerName?: string | null;
   serialNumber?: number;
 };
 
@@ -78,6 +82,9 @@ interface LocationTableProps {
   onChangeStatus?: (location: Location, newStatus: string) => void;
   onVerify?: (location: Location) => void;
   onUnverify?: (location: Location) => void;
+  onAssign?: (location: Location) => void;
+  onUnassign?: (location: Location) => void;
+  currentUserId?: string | null;
   canApproveVerification?: boolean;
   canEdit?: boolean;
   canDelete?: boolean;
@@ -110,6 +117,9 @@ export const LocationTable: React.FC<LocationTableProps> = ({
   onChangeStatus,
   onVerify,
   onUnverify,
+  onAssign,
+  onUnassign,
+  currentUserId,
   canApproveVerification = false,
   canEdit = true,
   canDelete = true,
@@ -271,6 +281,35 @@ export const LocationTable: React.FC<LocationTableProps> = ({
     );
   };
 
+  const renderAssignmentAction = (park: Location) => {
+    if (!onAssign && !onUnassign) return null;
+
+    if (park.ownerId && park.ownerId !== currentUserId) {
+      return (
+        <DropdownMenuItem disabled>
+          <UserPlus className="h-4 w-4 mr-2 text-slate-400" />
+          Assigned to {park.ownerName || "another user"}
+        </DropdownMenuItem>
+      );
+    }
+
+    if (park.ownerId) {
+      return onUnassign ? (
+        <DropdownMenuItem onClick={() => onUnassign(park)}>
+          <UserMinus className="h-4 w-4 mr-2 text-amber-600" />
+          Unassign from me
+        </DropdownMenuItem>
+      ) : null;
+    }
+
+    return onAssign ? (
+      <DropdownMenuItem onClick={() => onAssign(park)}>
+        <UserPlus className="h-4 w-4 mr-2 text-emerald-600" />
+        Assign to me
+      </DropdownMenuItem>
+    ) : null;
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -412,6 +451,11 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                                 {formatVerifiedDate(park.verifiedAt)
                                   ? ` on ${formatVerifiedDate(park.verifiedAt)}`
                                   : ""}
+                              </div>
+                            ) : null}
+                            {(onAssign || onUnassign) && park.ownerName ? (
+                              <div className="text-xs text-blue-700 mt-1">
+                                Assigned to {park.ownerName}
                               </div>
                             ) : null}
                             <div className="flex items-center mt-1 text-sm text-muted-foreground">
@@ -576,6 +620,7 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                                   </DropdownMenuItem>
                                 ) : null}
                                 {renderVerificationAction(park)}
+                                {renderAssignmentAction(park)}
                                 {canChangeStatus && onChangeStatus ? (
                                   <DropdownMenuSub>
                                     <DropdownMenuSubTrigger className="flex items-center">
@@ -647,6 +692,11 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                           {formatVerifiedDate(park.verifiedAt)
                             ? ` on ${formatVerifiedDate(park.verifiedAt)}`
                             : ""}
+                        </div>
+                      ) : null}
+                      {(onAssign || onUnassign) && park.ownerName ? (
+                        <div className="text-xs text-blue-700 mt-1">
+                          Assigned to {park.ownerName}
                         </div>
                       ) : null}
                       <div className="flex items-start mt-1 text-sm text-muted-foreground">
@@ -746,6 +796,7 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                             </DropdownMenuItem>
                           ) : null}
                           {renderVerificationAction(park)}
+                                {renderAssignmentAction(park)}
                           {canChangeStatus && onChangeStatus ? (
                             <DropdownMenuSub>
                               <DropdownMenuSubTrigger className="flex items-center">

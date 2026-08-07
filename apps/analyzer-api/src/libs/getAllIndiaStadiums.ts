@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { prismaInstance } from "@repo/db";
-import { runVenueScraper, VenueScraperConfig, VenueSearchOptions, VenueUpsertData } from "./venueScraperCore";
+import { runVenueScraper, VenueScraperConfig, VenueScraperResult, VenueSearchOptions, VenueUpsertData } from "./venueScraperCore";
 
 export type StadiumSearchOptions = VenueSearchOptions;
 
@@ -93,6 +93,6 @@ const stadiumConfig: VenueScraperConfig = {
   },
 };
 
-export async function getAllIndiaStadiums(options: StadiumSearchOptions = {}): Promise<void> {
-  await runVenueScraper(stadiumConfig, options);
+export async function getAllIndiaStadiums(options: StadiumSearchOptions = {}): Promise<VenueScraperResult> {
+  return runVenueScraper(stadiumConfig, options);
 }
