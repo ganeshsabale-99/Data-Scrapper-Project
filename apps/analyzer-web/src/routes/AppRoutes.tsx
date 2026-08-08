@@ -35,6 +35,7 @@ const CoworkingCompanyDetailsPage = lazy(() =>
 const FundingNewsPage = lazy(() => import("@/pages/dashboard/FundingNewsPage"));
 const FundingNewsDetailsPage = lazy(() => import("@/pages/dashboard/FundingNewsDetailsPage"));
 const ExternalApiPage = lazy(() => import("@/pages/dashboard/ExternalApiPage"));
+const LeadsPage = lazy(() => import("@/pages/dashboard/LeadsPage"));
 const UsersPage = lazy(() => import("@/pages/dashboard/UsersPage"));
 const CoworkingSpacesPage = lazy(() => import("@/pages/dashboard/CoworkingSpacesPage"));
 const AccessControlPage = lazy(() => import("@/pages/dashboard/AccessControlPage"));
@@ -140,6 +141,16 @@ export const Routes = [
           <RequirePermission permission="SYSTEM.SUPER_ADMIN" fallbackPath="/dashboard">
             <LazyRoute>
               <ExternalApiPage />
+            </LazyRoute>
+          </RequirePermission>
+        ),
+      },
+      {
+        path: "leads",
+        element: (
+          <RequirePermission permission="LEADS.VIEW" fallbackPath="/dashboard">
+            <LazyRoute>
+              <LeadsPage />
             </LazyRoute>
           </RequirePermission>
         ),

@@ -37,7 +37,9 @@ export type PermissionKey =
   | "FUNDING.NEWS_VIEW"
   | "REPORTS.VIEW"
   | "NOTIFICATIONS.VIEW"
-  | "RBAC.MANAGE";
+  | "RBAC.MANAGE"
+  | "LEADS.VIEW"
+  | "LEADS.MANAGE";
 
 export type PermissionDefinition = {
   key: PermissionKey;
@@ -260,6 +262,20 @@ export const RBAC_PERMISSION_CATALOG: PermissionDefinition[] = [
     description: "Can manage departments, roles, and permissions",
     isSystem: true,
   },
+  {
+    key: "LEADS.VIEW",
+    name: "View Leads",
+    module: "LEADS",
+    description: "Can view leads captured from trial/contact forms",
+    isSystem: true,
+  },
+  {
+    key: "LEADS.MANAGE",
+    name: "Manage Leads",
+    module: "LEADS",
+    description: "Can manage lead records",
+    isSystem: true,
+  },
 ];
 
 
@@ -308,6 +324,7 @@ export const DEFAULT_SYSTEM_ROLE_TEMPLATES: RoleTemplate[] = [
       "FUNDING.NEWS_VIEW",
       "REPORTS.VIEW",
       "NOTIFICATIONS.VIEW",
+      "LEADS.VIEW",
     ],
     isSystem: true,
   },
@@ -331,6 +348,7 @@ export const DEFAULT_SYSTEM_ROLE_TEMPLATES: RoleTemplate[] = [
       "AIRPORTS.MANAGE",
       "FUNDING.NEWS_VIEW",
       "NOTIFICATIONS.VIEW",
+      "LEADS.VIEW",
     ],
     isSystem: true,
   },
@@ -354,6 +372,7 @@ export const DEFAULT_SYSTEM_ROLE_TEMPLATES: RoleTemplate[] = [
       "AIRPORTS.MANAGE",
       "FUNDING.NEWS_VIEW",
       "NOTIFICATIONS.VIEW",
+      "LEADS.VIEW",
     ],
     isSystem: true,
   },

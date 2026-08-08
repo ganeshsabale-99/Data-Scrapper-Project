@@ -10,6 +10,7 @@ import {
   externalStadiums,
   externalAirports,
 } from "../controller/externalVenueController";
+import { listLeads, getLeadById } from "../controller/leadController";
 import { externalApiAuditLogger } from "../middleware/externalApiAudit";
 import { externalApiKeyAuth } from "../middleware/externalApiAuth";
 import { externalApiRateLimit } from "../middleware/externalApiRateLimit";
@@ -57,3 +58,6 @@ externalTechparksRouter.get("/stadiums/:id", requireExternalApiScope("stadium:na
 
 externalTechparksRouter.get("/airports", requireExternalApiScope("airport:national:read"), externalAirports.list);
 externalTechparksRouter.get("/airports/:id", requireExternalApiScope("airport:national:read"), externalAirports.getById);
+
+externalTechparksRouter.get("/leads", requireExternalApiScope("leads:read"), listLeads);
+externalTechparksRouter.get("/leads/:id", requireExternalApiScope("leads:read"), getLeadById);

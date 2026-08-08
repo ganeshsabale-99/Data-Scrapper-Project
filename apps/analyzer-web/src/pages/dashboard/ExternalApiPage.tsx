@@ -76,6 +76,7 @@ const ExternalApiPage = () => {
         { id: "hospital:national:read", label: "Read Hospitals" },
         { id: "stadium:national:read", label: "Read Stadiums" },
         { id: "airport:national:read", label: "Read Airports" },
+        { id: "leads:read", label: "Read Leads" },
     ];
 
     useEffect(() => {

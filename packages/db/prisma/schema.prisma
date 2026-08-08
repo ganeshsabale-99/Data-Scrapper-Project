@@ -581,6 +581,23 @@ model ExternalApiRequestLog {
   @@index([path, createdAt])
 }
 
+model Lead {
+  id                   Int      @id @default(autoincrement())
+  name                 String
+  email                String
+  phone                String?
+  companyName          String?
+  communicationMethod  String?
+  city                 String?
+  lookingFor           String?
+  type                 String   @default("TRIAL_7_DAY")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([type, createdAt])
+  @@index([email])
+}
+
 
 
 model Mall {

@@ -16,6 +16,7 @@ import {
   revokeExternalApiKey,
   deleteExternalClient,
 } from "../controller/externalApiKeyManagementController";
+import { listLeadsFromGupioWebsite, getLeadFromGupioWebsiteById } from "../controller/leadsProxyController";
 
 export const adminRouter: ExpressRouter = Router();
 const requireUsersView = [
@@ -34,6 +35,12 @@ const requireUsersManage = [
 const requireSuperAdmin = [
   authenticateToken,
   checkPermission(["SYSTEM.SUPER_ADMIN"]),
+] as const;
+const requireLeadsView = [
+  authenticateToken,
+  checkPermission(["LEADS.VIEW", "LEADS.MANAGE"], {
+    mode: "any",
+  }),
 ] as const;
 
 const getPrismaErrorCode = (error: unknown): string => {
@@ -778,3 +785,7 @@ adminRouter.post("/external/clients", ...requireSuperAdmin, createExternalClient
 adminRouter.post("/external/keys", ...requireSuperAdmin, issueExternalApiKey);
 adminRouter.post("/external/keys/:id/revoke", ...requireSuperAdmin, revokeExternalApiKey);
 adminRouter.delete("/external/clients/:id", ...requireSuperAdmin, deleteExternalClient);
+
+// Leads (proxies gupio-website-test's real trial-form leads)
+adminRouter.get("/leads", ...requireLeadsView, listLeadsFromGupioWebsite);
+adminRouter.get("/leads/:id", ...requireLeadsView, getLeadFromGupioWebsiteById);

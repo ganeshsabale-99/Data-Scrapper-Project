@@ -23,6 +23,7 @@ import {
   Activity,
   Trophy,
   Plane,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -120,8 +121,19 @@ export const Sidebar = ({ onClose, isMobile = false }: SidebarProps) => {
       canManageTechParks: canPerformAction("canManageTechParks"),
       canManageCoworkingSpaces: canPerformAction("canManageCoworkingSpaces"),
       canAccessExternalApi: hasPermission("SYSTEM.SUPER_ADMIN"), // Added for External API
+      canAccessLeads: hasPermission("LEADS.VIEW") || hasPermission("LEADS.MANAGE"),
     };
   }, [sessionVersion]);
+
+  // Only show the highest scope level a user has (National > State > City) —
+  // a national-level user already sees everything within any state/city.
+  const highestScopeLevel = roleAccess.canAccessNational
+    ? "national"
+    : roleAccess.canAccessState
+      ? "state"
+      : roleAccess.canAccessCity
+        ? "city"
+        : null;
 
 
 
@@ -186,7 +198,7 @@ export const Sidebar = ({ onClose, isMobile = false }: SidebarProps) => {
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-2">
           {/* National Tab - Only for Admin */}
-          {roleAccess.canAccessNational && (
+          {highestScopeLevel === "national" && (
             collapsed && !isMobile ? (
               <SidebarItem
                 to="/dashboard/national?tab=techParks"
@@ -208,7 +220,7 @@ export const Sidebar = ({ onClose, isMobile = false }: SidebarProps) => {
           )}
 
           {/* State Tab - For Admin and Sales Manager */}
-          {roleAccess.canAccessState && (
+          {highestScopeLevel === "state" && (
             collapsed && !isMobile ? (
               <SidebarItem
                 to={`${stateBase}?tab=techParks`}
@@ -230,7 +242,7 @@ export const Sidebar = ({ onClose, isMobile = false }: SidebarProps) => {
           )}
 
           {/* City Tab - For all roles */}
-          {roleAccess.canAccessCity && (
+          {highestScopeLevel === "city" && (
             collapsed && !isMobile ? (
               <SidebarItem
                 to={`${cityDashboardPath}?tab=techParks`}
@@ -316,6 +328,16 @@ export const Sidebar = ({ onClose, isMobile = false }: SidebarProps) => {
               to="/dashboard/external-api"
               icon={Key}
               label="External API"
+              collapsed={collapsed && !isMobile}
+              onClick={isMobile ? onClose : undefined}
+            />
+          )}
+
+          {roleAccess.canAccessLeads && (
+            <SidebarItem
+              to="/dashboard/leads"
+              icon={UserPlus}
+              label="Trial Leads"
               collapsed={collapsed && !isMobile}
               onClick={isMobile ? onClose : undefined}
             />

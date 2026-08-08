@@ -27,6 +27,7 @@ import { hospitalsRouter } from "./routes/hospitalsRouter";
 import { stadiumsRouter } from "./routes/stadiumsRouter";
 import { airportsRouter } from "./routes/airportsRouter";
 import { nationalOverviewRouter } from "./routes/nationalOverviewRouter";
+import { leadsRouter } from "./routes/leadsRouter";
 import { requestContextMiddleware } from "./middleware/requestContext";
 import {
   closeRateLimitStore,
@@ -208,6 +209,7 @@ app.use("/hospitals", hospitalsRouter);
 app.use("/stadiums", stadiumsRouter);
 app.use("/airports", airportsRouter);
 app.use("/national-overview", nationalOverviewRouter);
+app.use("/leads", leadsRouter);
 
 app.use((req: Request, res: Response) => {
   return res.status(404).json({

@@ -50,10 +50,10 @@ export default function Navigation() {
 
                     {/* CTA */}
                     <div className="hidden md:flex items-center gap-5">
-                        <a href="http://localhost:5173/login" target="_blank" rel="noopener noreferrer" className="font-['Inter'] text-sm font-semibold text-[#A7AFBA] hover:text-[#F4F6F8] transition-colors">
+                        <a href="http://localhost:5174/login" target="_blank" rel="noopener noreferrer" className="font-['Inter'] text-sm font-semibold text-[#A7AFBA] hover:text-[#F4F6F8] transition-colors">
                             Sign In
                         </a>
-                        <a href="http://localhost:5173/signup" target="_blank" rel="noopener noreferrer" className="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold font-['Inter'] flex items-center gap-2">
+                        <a href="http://localhost:5174/signup" target="_blank" rel="noopener noreferrer" className="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold font-['Inter'] flex items-center gap-2">
                             Sign Up <ArrowRight className="w-4 h-4" />
                         </a>
                     </div>
@@ -76,8 +76,8 @@ export default function Navigation() {
                         </a>
                     ))}
                     <div className="flex flex-col gap-5 mt-6 w-full max-w-[220px]">
-                        <a href="http://localhost:5173/login" target="_blank" rel="noopener noreferrer" className="text-center font-['Inter'] text-lg font-medium text-[#A7AFBA] hover:text-[#F4F6F8] transition-colors">Sign In</a>
-                        <a href="http://localhost:5173/signup" target="_blank" rel="noopener noreferrer" className="btn-primary w-full py-3.5 rounded-xl text-base font-semibold font-['Inter'] flex justify-center items-center">Sign Up</a>
+                        <a href="http://localhost:5174/login" target="_blank" rel="noopener noreferrer" className="text-center font-['Inter'] text-lg font-medium text-[#A7AFBA] hover:text-[#F4F6F8] transition-colors">Sign In</a>
+                        <a href="http://localhost:5174/signup" target="_blank" rel="noopener noreferrer" className="btn-primary w-full py-3.5 rounded-xl text-base font-semibold font-['Inter'] flex justify-center items-center">Sign Up</a>
                     </div>
                 </div>
             )}
