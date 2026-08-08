@@ -1,5 +1,6 @@
 import { logOperationalEvent } from "./serviceHealthLogger";
 import { fetchGooglePlaces, GooglePlacesRequestError } from "./googlePlacesClient";
+import { normalizeStateName } from "../utils/indiaStates";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
 
@@ -89,19 +90,21 @@ function scoreParkingOpportunity(reviews: Array<{ text: string }>): "HIGH" | "ME
 }
 
 function extractAddressComponents(
-  addressComponents: Array<{ long_name: string; types: string[] }>,
-): { locality: string; district: string; state: string; pincode: string; country: string } {
+  addressComponents: Array<{ long_name: string; short_name?: string; types: string[] }>,
+): { locality: string; district: string; state: string; pincode: string; country: string; countryCode: string } {
   let locality = "";
   let district = "";
   let state = "";
   let pincode = "";
   let country = "";
+  let countryCode = "";
 
   for (const component of addressComponents) {
     if (component.types.includes("postal_code")) {
       pincode = component.long_name;
     } else if (component.types.includes("country")) {
       country = component.long_name;
+      countryCode = component.short_name ?? "";
     } else if (component.types.includes("administrative_area_level_1")) {
       state = component.long_name;
     } else if (component.types.includes("administrative_area_level_3") && !district) {
@@ -115,7 +118,7 @@ function extractAddressComponents(
     }
   }
 
-  return { locality, district, state, pincode, country };
+  return { locality, district, state, pincode, country, countryCode };
 }
 
 async function fetchAllPlacesForQuery(query: string): Promise<any[]> {
@@ -293,6 +296,13 @@ export async function runVenueScraper(
       }
 
       const addrComponents = extractAddressComponents(details.address_components ?? []);
+      if (addrComponents.countryCode && addrComponents.countryCode !== "IN") {
+        // Text search has no hard India restriction, so a same-name match
+        // abroad (e.g. a locality named "Salt Lake" matching Salt Lake City,
+        // Utah) can slip through and get tagged with the wrong city/state.
+        skipped++;
+        continue;
+      }
       const reviews: Array<{ text: string }> = details.reviews ?? [];
       const parkingScore = scoreParkingOpportunity(reviews);
       const photoRef: string | null = details.photos?.[0]?.photo_reference ?? null;
@@ -303,8 +313,8 @@ export async function runVenueScraper(
         address: details.formatted_address ?? null,
         locality: addrComponents.locality || null,
         district: addrComponents.district || null,
-        city: searchCity || null,
-        state: addrComponents.state || searchState || null,
+        city: addrComponents.locality || searchCity || addrComponents.district || null,
+        state: normalizeStateName(addrComponents.state) || searchState || null,
         pincode: addrComponents.pincode || null,
         country: addrComponents.country || null,
         lat: details.geometry?.location?.lat ?? null,

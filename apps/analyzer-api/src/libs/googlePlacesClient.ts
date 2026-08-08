@@ -36,9 +36,15 @@ export async function fetchGooglePlaces(
 
   let lastError: unknown;
 
+  // Without an explicit language, Google replies in the local script for some
+  // results (e.g. Marathi for Maharashtra places), which fragments state/city
+  // values in the DB ("Maharashtra" vs "महाराष्ट्र"). `region` biases results
+  // toward India so identically-named places abroad don't get matched.
+  const requestParams = { language: "en", region: "in", ...params };
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
-      const response = await axios.get(url, { params, timeout: 15000 });
+      const response = await axios.get(url, { params: requestParams, timeout: 15000 });
       const status = response.data?.status;
 
       if (!status || status === "OK" || status === "ZERO_RESULTS") {

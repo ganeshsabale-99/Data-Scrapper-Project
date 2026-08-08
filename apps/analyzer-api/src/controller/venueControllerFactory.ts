@@ -9,6 +9,7 @@ import {
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
 import { matchEnumValue } from "../utils/enumSearch";
 import { getPostgresEnumValues } from "../utils/dbEnums";
+import { normalizeCity, getCityAliasMap } from "../utils/cityNormalization";
 import { prismaInstance } from "@repo/db";
 
 const VALID_STATUSES = [
@@ -136,13 +137,18 @@ export function createVenueController(
       const responseRate =
         contacted > 0 ? Number(((positiveResponses / contacted) * 100).toFixed(2)) : 0;
 
+      const aliasMap = await getCityAliasMap();
       const normalizeKey = (s: string) => s.trim().toLowerCase();
       const cityMap = new Map<string, { city: string; count: number }>();
       cityGroups.forEach((g: any) => {
         const cityRaw = (g.city || "").trim();
         const districtRaw = (g.district || "").trim();
         const count = Number(g._count?._all ?? 0);
-        const city = districtRaw || cityRaw || "Unknown";
+        // Use city as primary, fallback to district (district is an
+        // administrative division like "Pune Division", not a real city name),
+        // then roll suburbs/localities up to their canonical city (e.g.
+        // "Pimpri-Chinchwad", "Pirangut" -> "Pune") via the CityAlias table.
+        const city = normalizeCity(cityRaw || districtRaw || "Unknown", aliasMap);
         const key = normalizeKey(city);
         const existing = cityMap.get(key);
         if (existing) { existing.count += count; }

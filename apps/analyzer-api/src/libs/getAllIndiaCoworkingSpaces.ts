@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prismaInstance } from "@repo/db";
 import { logOperationalEvent } from "./serviceHealthLogger";
+import { normalizeStateName } from "../utils/indiaStates";
 import axios from "axios";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
@@ -183,18 +184,20 @@ function computeLeadScore(
 }
 
 function extractAddressComponents(
-  addressComponents: Array<{ long_name: string; types: string[] }>,
-): { district: string; state: string; pincode: string; country: string } {
+  addressComponents: Array<{ long_name: string; short_name?: string; types: string[] }>,
+): { district: string; state: string; pincode: string; country: string; countryCode: string } {
   let district = "";
   let state = "";
   let pincode = "";
   let country = "";
+  let countryCode = "";
 
   for (const component of addressComponents) {
     if (component.types.includes("postal_code")) {
       pincode = component.long_name;
     } else if (component.types.includes("country")) {
       country = component.long_name;
+      countryCode = component.short_name ?? "";
     } else if (component.types.includes("administrative_area_level_1")) {
       state = component.long_name;
     } else if (
@@ -210,7 +213,7 @@ function extractAddressComponents(
     }
   }
 
-  return { district, state, pincode, country };
+  return { district, state, pincode, country, countryCode };
 }
 
 function generateCoworkingId(placeId: string): string {
@@ -224,7 +227,7 @@ async function fetchAllPlacesForQuery(query: string): Promise<any[]> {
   let pageToken: string | undefined;
 
   do {
-    const params: Record<string, string> = { key: API_KEY, query };
+    const params: Record<string, string> = { key: API_KEY, query, language: "en", region: "in" };
     if (pageToken) params.pagetoken = pageToken;
 
     const resp = await axios.get(
@@ -331,6 +334,8 @@ export async function getAllIndiaCoworkingSpaces(
           params: {
             key: API_KEY,
             place_id: placeId,
+            language: "en",
+            region: "in",
             fields: [
               "name",
               "formatted_address",
@@ -364,6 +369,13 @@ export async function getAllIndiaCoworkingSpaces(
       }
 
       const addrComponents = extractAddressComponents(details.address_components ?? []);
+      if (addrComponents.countryCode && addrComponents.countryCode !== "IN") {
+        // Text search has no hard India restriction, so a brand-name match
+        // abroad (e.g. "Innov8 coworking" matching a Dubai listing) can slip
+        // through and get tagged with the wrong city/state.
+        skipped++;
+        continue;
+      }
       const reviews: Array<{ text: string }> = details.reviews ?? [];
       const parkingScore = scoreParkingOpportunity(reviews);
       const hasPhone = Boolean(details.formatted_phone_number);
@@ -383,7 +395,7 @@ export async function getAllIndiaCoworkingSpaces(
         update: {
           name: details.name,
           city: searchCity,
-          state: addrComponents.state || searchState,
+          state: normalizeStateName(addrComponents.state) || searchState,
           district: addrComponents.district || null,
           pincode: addrComponents.pincode || null,
           country: addrComponents.country || "India",
@@ -405,7 +417,7 @@ export async function getAllIndiaCoworkingSpaces(
           id: coworkingId,
           name: details.name,
           city: searchCity,
-          state: addrComponents.state || searchState,
+          state: normalizeStateName(addrComponents.state) || searchState,
           district: addrComponents.district || null,
           pincode: addrComponents.pincode || null,
           country: addrComponents.country || "India",

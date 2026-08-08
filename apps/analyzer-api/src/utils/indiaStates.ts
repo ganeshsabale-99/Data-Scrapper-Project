@@ -37,3 +37,55 @@ export const INDIA_STATES_AND_UTS = [
   "West Bengal",
 ] as const;
 
+// Google Places sometimes returns administrative_area_level_1 in the local
+// script even when `language=en` is requested (a documented quirk — English
+// names aren't guaranteed for every component). This maps the regional-script
+// variants we've observed back to the canonical English name so state-based
+// filters/counts ("Maharashtra") don't silently miss rows saved as "महाराष्ट्र".
+const STATE_NAME_TRANSLATIONS: Record<string, string> = {
+  "अंडमान और निकोबार द्वीप समूह": "Andaman and Nicobar Islands",
+  "आंध्र प्रदेश": "Andhra Pradesh",
+  "अरुणाचल प्रदेश": "Arunachal Pradesh",
+  "असम": "Assam",
+  "बिहार": "Bihar",
+  "चंडीगढ़": "Chandigarh",
+  "छत्तीसगढ़": "Chhattisgarh",
+  "दादरा और नगर हवेली और दमन और दीव": "Dadra and Nagar Haveli and Daman and Diu",
+  "दिल्ली": "Delhi",
+  "राष्ट्रीय राजधानी क्षेत्र दिल्ली": "Delhi",
+  "गोवा": "Goa",
+  "गुजरात": "Gujarat",
+  "हरियाणा": "Haryana",
+  "हिमाचल प्रदेश": "Himachal Pradesh",
+  "जम्मू और कश्मीर": "Jammu and Kashmir",
+  "झारखंड": "Jharkhand",
+  "कर्नाटक": "Karnataka",
+  "केरल": "Kerala",
+  "കേരള": "Kerala",
+  "लद्दाख": "Ladakh",
+  "लक्षद्वीप": "Lakshadweep",
+  "मध्य प्रदेश": "Madhya Pradesh",
+  "महाराष्ट्र": "Maharashtra",
+  "मणिपुर": "Manipur",
+  "मेघालय": "Meghalaya",
+  "मिजोरम": "Mizoram",
+  "नागालैंड": "Nagaland",
+  "ओडिशा": "Odisha",
+  "पुदुचेरी": "Puducherry",
+  "पंजाब": "Punjab",
+  "राजस्थान": "Rajasthan",
+  "सिक्किम": "Sikkim",
+  "तमिल नाडु": "Tamil Nadu",
+  "तेलंगाना": "Telangana",
+  "त्रिपुरा": "Tripura",
+  "उत्तर प्रदेश": "Uttar Pradesh",
+  "उत्तराखंड": "Uttarakhand",
+  "पश्चिम बंगाल": "West Bengal",
+};
+
+export function normalizeStateName(state: string | null | undefined): string | null {
+  if (!state) return state ?? null;
+  const trimmed = state.trim();
+  return STATE_NAME_TRANSLATIONS[trimmed] ?? trimmed;
+}
+

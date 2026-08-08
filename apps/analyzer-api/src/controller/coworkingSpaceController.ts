@@ -171,8 +171,11 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
             const districtRaw = (group.district || "").trim();
             const count = Number(group._count?._all ?? 0);
             
-            // Use district as primary, fallback to city
-            const city = districtRaw || cityRaw || "Unknown";
+            // Use city as primary, fallback to district (district is an
+            // administrative division like "Pune Division", not a real city name),
+            // then roll suburbs/localities up to their canonical city (e.g.
+            // "Pimpri-Chinchwad", "Pirangut" -> "Pune") via the CityAlias table.
+            const city = normalizeCity(cityRaw || districtRaw || "Unknown", aliasMap);
             const key = normalizeKey(city);
             const existing = cityMap.get(key);
             if (existing) {

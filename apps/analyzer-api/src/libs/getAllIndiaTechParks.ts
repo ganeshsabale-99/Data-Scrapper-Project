@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prismaInstance } from "@repo/db";
 import { logOperationalEvent } from "./serviceHealthLogger";
+import { normalizeStateName } from "../utils/indiaStates";
 import axios from "axios";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
@@ -74,19 +75,21 @@ function isLikelyTechPark(types: string[], name: string): boolean {
 }
 
 function extractAddressComponents(
-  addressComponents: Array<{ long_name: string; types: string[] }>,
-): { locality: string; district: string; state: string; pincode: string; country: string } {
+  addressComponents: Array<{ long_name: string; short_name?: string; types: string[] }>,
+): { locality: string; district: string; state: string; pincode: string; country: string; countryCode: string } {
   let locality = "";
   let district = "";
   let state = "";
   let pincode = "";
   let country = "";
+  let countryCode = "";
 
   for (const component of addressComponents) {
     if (component.types.includes("postal_code")) {
       pincode = component.long_name;
     } else if (component.types.includes("country")) {
       country = component.long_name;
+      countryCode = component.short_name ?? "";
     } else if (component.types.includes("administrative_area_level_1")) {
       state = component.long_name;
     } else if (component.types.includes("administrative_area_level_2") && !district) {
@@ -100,7 +103,7 @@ function extractAddressComponents(
     }
   }
 
-  return { locality, district, state, pincode, country };
+  return { locality, district, state, pincode, country, countryCode };
 }
 
 function generateTechParkId(placeId: string): string {
@@ -112,7 +115,7 @@ async function fetchAllPlacesForQuery(query: string): Promise<any[]> {
   let pageToken: string | undefined;
 
   do {
-    const params: Record<string, string> = { key: API_KEY, query };
+    const params: Record<string, string> = { key: API_KEY, query, language: "en", region: "in" };
     if (pageToken) params.pagetoken = pageToken;
 
     const resp = await axios.get(
@@ -217,6 +220,8 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           params: {
             key: API_KEY,
             place_id: placeId,
+            language: "en",
+            region: "in",
             fields: [
               "name",
               "formatted_address",
@@ -252,8 +257,15 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
       }
 
       const addr = extractAddressComponents(details.address_components ?? []);
-      const resolvedCity = searchCity || addr.locality || addr.district || null;
-      const resolvedState = addr.state || searchState || null;
+      if (addr.countryCode && addr.countryCode !== "IN") {
+        // Text search has no hard India restriction, so a same-name match
+        // abroad (e.g. "Tech Park" in another country) can slip through.
+        skipped++;
+        await sleep(300);
+        continue;
+      }
+      const resolvedCity = addr.locality || searchCity || addr.district || null;
+      const resolvedState = normalizeStateName(addr.state) || searchState || null;
       const now = new Date();
 
       await prismaInstance.newTechPark.upsert({
