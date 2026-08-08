@@ -277,14 +277,20 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
                     ? statusCandidate
                     : undefined;
 
-            where.OR = [
-                { name: { contains: trimmed, mode: 'insensitive' } },
-                { address: { contains: trimmed, mode: 'insensitive' } },
-                { operator_name: { contains: trimmed, mode: 'insensitive' } },
-                { campus_brand: { contains: trimmed, mode: 'insensitive' } },
-                { contact_phone: { contains: trimmed, mode: 'insensitive' } },
-                { generic_email: { contains: trimmed, mode: 'insensitive' } },
-                ...(statusMatch ? [{ status: statusMatch }] : []),
+            // Must not clobber the top-level `where.OR` above (city/district scoping) —
+            // nest the search terms under `AND` so results stay within this city.
+            where.AND = [
+                {
+                    OR: [
+                        { name: { contains: trimmed, mode: 'insensitive' } },
+                        { address: { contains: trimmed, mode: 'insensitive' } },
+                        { operator_name: { contains: trimmed, mode: 'insensitive' } },
+                        { campus_brand: { contains: trimmed, mode: 'insensitive' } },
+                        { contact_phone: { contains: trimmed, mode: 'insensitive' } },
+                        { generic_email: { contains: trimmed, mode: 'insensitive' } },
+                        ...(statusMatch ? [{ status: statusMatch }] : []),
+                    ],
+                },
             ];
         }
 

@@ -772,15 +772,21 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
           ? statusCandidate
           : undefined;
 
-      baseWhere.OR = [
-        { name: { contains: trimmed, mode: 'insensitive' } },
-        { address_line1: { contains: trimmed, mode: 'insensitive' } },
-        { address_line2: { contains: trimmed, mode: 'insensitive' } },
-        { locality: { contains: trimmed, mode: 'insensitive' } },
-        { website: { contains: trimmed, mode: 'insensitive' } },
-        { reception_phone: { contains: trimmed, mode: 'insensitive' } },
-        { international_phone: { contains: trimmed, mode: 'insensitive' } },
-        ...(statusMatch ? [{ status: statusMatch }] : []),
+      // Must not clobber the top-level `baseWhere.OR` above (city/district scoping) —
+      // nest the search terms under `AND` so results stay within this city.
+      baseWhere.AND = [
+        {
+          OR: [
+            { name: { contains: trimmed, mode: 'insensitive' } },
+            { address_line1: { contains: trimmed, mode: 'insensitive' } },
+            { address_line2: { contains: trimmed, mode: 'insensitive' } },
+            { locality: { contains: trimmed, mode: 'insensitive' } },
+            { website: { contains: trimmed, mode: 'insensitive' } },
+            { reception_phone: { contains: trimmed, mode: 'insensitive' } },
+            { international_phone: { contains: trimmed, mode: 'insensitive' } },
+            ...(statusMatch ? [{ status: statusMatch }] : []),
+          ],
+        },
       ];
     }
 

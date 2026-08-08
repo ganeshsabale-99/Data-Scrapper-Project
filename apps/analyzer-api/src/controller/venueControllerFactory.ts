@@ -218,12 +218,18 @@ export function createVenueController(
         const statusMatch =
           statusCandidate && dbEnumValues?.includes(statusCandidate) ? statusCandidate : undefined;
 
-        where.OR = [
-          { name: { contains: trimmed, mode: "insensitive" } },
-          { address: { contains: trimmed, mode: "insensitive" } },
-          { reception_phone: { contains: trimmed, mode: "insensitive" } },
-          { generic_email: { contains: trimmed, mode: "insensitive" } },
-          ...(statusMatch ? [{ status: statusMatch }] : []),
+        // Must not clobber the top-level `where.OR` above (city/district scoping) —
+        // nest the search terms under `AND` so results stay within this city.
+        where.AND = [
+          {
+            OR: [
+              { name: { contains: trimmed, mode: "insensitive" } },
+              { address: { contains: trimmed, mode: "insensitive" } },
+              { reception_phone: { contains: trimmed, mode: "insensitive" } },
+              { generic_email: { contains: trimmed, mode: "insensitive" } },
+              ...(statusMatch ? [{ status: statusMatch }] : []),
+            ],
+          },
         ];
       }
 
