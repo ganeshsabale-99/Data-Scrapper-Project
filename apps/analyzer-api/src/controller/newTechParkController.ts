@@ -26,6 +26,8 @@ import { getRequiredEnv, getS3BucketName, getS3Client } from "../libs/s3";
 import { scrapeWebsiteImage } from "../libs/scrapeWebsiteImage";
 import { enrichCompaniesForTechPark, syncCompaniesForTechPark } from "../libs/techParkCompanySync";
 import { enrichTechParkWebsiteDetails } from "../libs/techParkWebsiteEnrichment";
+import { enrichTechParkDirectoryDetails } from "../libs/techParkDirectoryEnrichment";
+import { isTechParkPhotoRefreshDue, refreshTechParkPhotos } from "../libs/techParkPhotoRefresh";
 import { logOperationalEvent } from "../libs/serviceHealthLogger";
 
 const normalizePermission = (value: string) =>
@@ -2182,6 +2184,38 @@ export const enrichTechParkWebsiteById = async (req: Request, res: Response) => 
   }
 };
 
+export const enrichTechParkDirectoryById = async (req: Request, res: Response) => {
+  try {
+    const id = getQueryString(req.params.id);
+    const scope = getDataScopeFromRequest(req);
+
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Tech park ID is required" });
+    }
+
+    const accessWhere: any = { id };
+    applyScopeToStateCityWhere(accessWhere, scope);
+    const techPark = await prismaInstance.newTechPark.findFirst({
+      where: accessWhere,
+      select: { id: true, name: true, city: true, state: true },
+    });
+
+    if (!techPark) {
+      return res.status(404).json({ success: false, message: "Tech park not found" });
+    }
+
+    const result = await enrichTechParkDirectoryDetails(techPark);
+    return res.status(200).json(result);
+  } catch (error) {
+    return sendNewTechParkSafeError(
+      res,
+      error,
+      "enrichTechParkDirectoryById",
+      "Failed to search the web for tech park details",
+    );
+  }
+};
+
 export const getCompanyById = async (req: Request, res: Response) => {
   try {
     const companyId = getQueryString(req.params.companyId);
@@ -2742,18 +2776,35 @@ export const getTechParkById = async (
       });
     }
 
+    if (isTechParkPhotoRefreshDue(hydratedTechPark)) {
+      // Google Place photo references go dead when the underlying place
+      // snapshot changes (rename, listing merge, re-index) — a stale key is
+      // not the only failure mode, so re-fetch fresh references outright
+      // instead of just swapping the key on ones that may no longer resolve.
+      runInBackground("getTechParkById.refreshPhotos", async () => {
+        await refreshTechParkPhotos(hydratedTechPark);
+      });
+    }
+
     const formState = getVerificationFormState(hydratedTechPark);
     const lifecycleStatus = getVerificationLifecycleStatus(hydratedTechPark);
 
+    const swapGoogleKey = (url: string): string => {
+      if (url.includes("maps.googleapis.com") && url.includes("key=") && process.env.GOOGLE_API_KEY) {
+        return url.replace(/([?&]key=)([^&]+)/, `$1${process.env.GOOGLE_API_KEY}`);
+      }
+      return url;
+    };
+
     let finalPhotoUrl = await toDisplayImageUrl(hydratedTechPark.photo_url);
-    if (finalPhotoUrl && finalPhotoUrl.startsWith("http") && finalPhotoUrl.includes("maps.googleapis.com") && finalPhotoUrl.includes("key=") && process.env.GOOGLE_API_KEY) {
-      finalPhotoUrl = finalPhotoUrl.replace(/([?&]key=)([^&]+)/, `$1${process.env.GOOGLE_API_KEY}`);
+    if (finalPhotoUrl && finalPhotoUrl.startsWith("http")) {
+      finalPhotoUrl = swapGoogleKey(finalPhotoUrl);
     }
 
     const finalExteriorMediaUrls = Array.isArray(hydratedTechPark.exterior_media_urls)
       ? (await Promise.all(hydratedTechPark.exterior_media_urls.map((url) => toDisplayImageUrl(url)))).filter(
           (url): url is string => Boolean(url),
-        )
+        ).map(swapGoogleKey)
       : [];
 
     return res.status(200).json({

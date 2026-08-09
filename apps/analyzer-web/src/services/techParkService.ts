@@ -356,6 +356,11 @@ export const techParkService = {
     return response.data;
   },
 
+  async enrichTechParkDirectoryDetails(techParkId: string) {
+    const response = await axiosInstance.post(`/new-techparks/${techParkId}/enrich-directory-details`);
+    return response.data;
+  },
+
   async updateCompany(companyId: string, payload: {
     name?: string;
     address?: string;

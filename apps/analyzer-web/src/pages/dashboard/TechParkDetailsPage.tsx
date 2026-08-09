@@ -285,6 +285,7 @@ export default function TechParkDetailsPage() {
   const [isUpdatingTechPark, setIsUpdatingTechPark] = useState(false);
   const [techParkFormData, setTechParkFormData] = useState<TechParkRecord | null>(null);
   const [heroImageSrc, setHeroImageSrc] = useState<string>("");
+  const [isEnriching, setIsEnriching] = useState(false);
   const canManageTechParkData = isAdmin || isSalesManager;
   const canDeleteTechParkData = isAdmin;
 
@@ -640,6 +641,34 @@ export default function TechParkDetailsPage() {
     setIsEditTechParkDialogOpen(true);
   };
 
+  const handleRunEnrichment = async () => {
+    if (!id || isEnriching) return;
+    setIsEnriching(true);
+    try {
+      // Website enrichment only fills details when an official website can
+      // be found; directory enrichment then fills any remaining gaps from
+      // open-web search, which is the only source for campuses without one.
+      const websiteResp = await techParkService.enrichTechParkWebsiteDetails(id).catch(() => null);
+      const directoryResp = await techParkService.enrichTechParkDirectoryDetails(id).catch(() => null);
+
+      const messages = [websiteResp, directoryResp].filter((r) => r?.success && r.data).map((r) => r.message);
+      if (messages.length > 0) {
+        toast.success(messages.join(" "));
+      } else {
+        toast.error("No new details were found for this tech park.");
+      }
+
+      const tpResp = await techParkService.getTechParkById(id);
+      if (tpResp.success) {
+        setTechPark(tpResp.data);
+      }
+    } catch (error: unknown) {
+      toast.error(getApiErrorMessage(error, "Failed to run enrichment"));
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
   const handleUpdateTechPark = async (updatedData?: TechParkRecord) => {
     if (!id || !updatedData || isUpdatingTechPark) return;
     setIsUpdatingTechPark(true);
@@ -737,6 +766,18 @@ export default function TechParkDetailsPage() {
                   <Button variant="outline" size="sm" onClick={handleEditTechParkClick}>
                     <Edit className="h-4 w-4 mr-2" />
                     Edit
+                  </Button>
+                ) : null}
+                {canManageTechParkData ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRunEnrichment}
+                    disabled={isEnriching}
+                    title="Re-scan the tech park's website for contact, management, and SPOC details"
+                  >
+                    <RefreshCcw className={`h-4 w-4 mr-2 ${isEnriching ? "animate-spin" : ""}`} />
+                    {isEnriching ? "Finding details..." : "Find Missing Details"}
                   </Button>
                 ) : null}
                 <Button

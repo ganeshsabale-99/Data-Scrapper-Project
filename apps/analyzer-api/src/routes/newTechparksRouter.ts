@@ -26,6 +26,7 @@ import {
   enrichCompaniesForTechParkById,
   addCompanyToTechPark,
   enrichTechParkWebsiteById,
+  enrichTechParkDirectoryById,
   getCompanyById,
   updateCompany,
   deleteCompany,
@@ -200,6 +201,12 @@ newTechparksRouter.post(
   authenticateToken,
   canManageTechParks,
   enrichTechParkWebsiteById,
+);
+newTechparksRouter.post(
+  "/:id/enrich-directory-details",
+  authenticateToken,
+  canManageTechParks,
+  enrichTechParkDirectoryById,
 );
 newTechparksRouter.patch(
   "/:id",

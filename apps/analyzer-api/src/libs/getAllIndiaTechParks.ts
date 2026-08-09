@@ -21,6 +21,14 @@ const TECH_PARK_KEYWORDS = [
   "info park",
   "ITPL",
   "tech city",
+  // Broadened so text search surfaces well-known campuses branded without
+  // the literal "tech park" phrase, e.g. Technopark or DLF Cyber City.
+  "technopark",
+  "cyber city",
+  "corporate park",
+  "knowledge park",
+  "IT SEZ",
+  "software campus",
 ];
 
 const CITIES_TO_SEARCH = [
@@ -57,6 +65,41 @@ const NON_TECHPARK_TYPES = new Set([
   "park", "stadium", "amusement_park",
 ]);
 
+// Real Indian office/IT campuses are branded in ways that rarely contain a
+// literal "tech park" / "IT park" phrase (e.g. "Technopark", "DLF Cyber
+// City", "RMZ Ecoworld", "Embassy TechVillage", "Salarpuria Sattva
+// Knowledge City") — the original TECH_TERMS-only allowlist silently
+// dropped most flagship campuses in the country. This list is broadened
+// with the common branding vocabulary those campuses actually use.
+const TECHPARK_NAME_TERMS = [
+  "tech park", "techpark", "technopark", "it park", "itpark",
+  "software park", "business park", "technology park", "cyber park",
+  "cybercity", "cyber city", "cyber towers", "cyber hub", "info park",
+  "infopark", "it hub", "it campus", "sez", "special economic zone",
+  "knowledge park", "knowledge city", "innovation hub", "it city",
+  "tech city", "techvillage", "tech village", "ecoworld", "corporate park",
+  "corporate towers", "business district", "business hub",
+  "world trade center", "world trade centre", "infotech park", "commerz",
+  "biz park", "office park", "it economic zone",
+];
+
+// Names that signal a place is clearly not an office/tech campus even
+// though it matched a tech-park search query — a text search for
+// "IT hub" or "business park" can still surface an unrelated small business.
+const TECHPARK_NEGATIVE_NAME_TERMS = [
+  "apartment", "residency", "residence", "flats", "housing society",
+  "hostel", "paying guest",
+  "temple", "church", "mosque", "gurudwara",
+  "school", "college", "university", "coaching",
+  "hospital", "clinic", "diagnostic", "pharmacy",
+  "hotel", "resort", "guest house", "restaurant", "dhaba",
+  "cinema", "multiplex",
+  "petrol pump", "fuel station", "gas station",
+  "bus stand", "bus depot", "railway station", "metro station",
+  "police station", "post office",
+  "cyber cafe", "internet cafe", "mobile repair", "computer repair",
+];
+
 export interface TechParkSearchOptions {
   testMode?: boolean;
   cityFilter?: string;
@@ -65,13 +108,8 @@ export interface TechParkSearchOptions {
 function isLikelyTechPark(types: string[], name: string): boolean {
   if (types.some((t) => NON_TECHPARK_TYPES.has(t))) return false;
   const nameLower = name.toLowerCase();
-  const techTerms = [
-    "tech park", "techpark", "it park", "itpark", "software park",
-    "business park", "technology park", "cyber park", "info park",
-    "it hub", "it campus", "sez", "special economic zone",
-    "knowledge park", "innovation hub", "it city", "tech city",
-  ];
-  return techTerms.some((t) => nameLower.includes(t));
+  if (TECHPARK_NEGATIVE_NAME_TERMS.some((t) => nameLower.includes(t))) return false;
+  return TECHPARK_NAME_TERMS.some((t) => nameLower.includes(t));
 }
 
 function extractAddressComponents(
