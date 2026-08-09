@@ -1,0 +1,57 @@
+# Dockerfile.api — Root shortcut for backend API
+# Multi-stage production build for analyzer-api (pnpm + Turborepo + Prisma on Alpine)
+
+# ── Stage 1: Builder ────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+WORKDIR /work
+
+RUN apk add --no-cache libc6-compat bash
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
+COPY apps/analyzer-api/package.json  apps/analyzer-api/
+COPY packages/db/package.json        packages/db/
+COPY packages/typescript-config/package.json packages/typescript-config/
+COPY packages/eslint-config/package.json     packages/eslint-config/
+COPY packages/ui/package.json               packages/ui/
+
+RUN npm install -g pnpm@9 --quiet && \
+    pnpm install --frozen-lockfile
+
+COPY . .
+
+RUN pnpm --filter @repo/db exec prisma generate --schema=prisma/schema.prisma
+RUN pnpm --filter @repo/db run build
+RUN pnpm --filter ./apps/analyzer-api run build
+RUN pnpm --filter analyzer-api deploy --prod /prod-app
+
+RUN cp -r /work/packages/db/prisma /prod-app/prisma && \
+    bash -c '\
+        PKG_DIR=$(ls /work/node_modules/.pnpm | grep "@prisma.client" | head -1) && \
+        echo "Copying .prisma from pnpm store entry: $PKG_DIR" && \
+        cp -r /work/node_modules/.pnpm/${PKG_DIR}/node_modules/.prisma \
+              /prod-app/node_modules/.pnpm/${PKG_DIR}/node_modules/ \
+    '
+
+# ── Stage 2: Runner ─────────────────────────────────────────────────
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+RUN apk add --no-cache libc6-compat && \
+    addgroup -S app && adduser -S -G app app
+
+COPY --from=builder /prod-app/package.json  ./package.json
+COPY --from=builder /prod-app/node_modules  ./node_modules
+COPY --from=builder /prod-app/dist          ./dist
+COPY --from=builder /prod-app/prisma        ./prisma
+
+USER app
+EXPOSE 3000
+
+CMD ["node", "dist/index.js"]

@@ -129,3 +129,14 @@ apps/analyzer-api/export_*.csv
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+*.tfvars
+*.tfvars.json
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
