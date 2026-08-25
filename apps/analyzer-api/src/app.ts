@@ -138,7 +138,14 @@ app.use((req, _res, next) => {
 app.use(requestContextMiddleware);
 app.use(securityHeadersMiddleware);
 app.use(rateLimitMiddleware);
-app.use(express.json({ limit: process.env.API_JSON_BODY_LIMIT || "10mb" }));
+app.get(["/", "/api", "/api/"], (_req: Request, res: Response) => {
+  return res.status(200).json({
+    success: true,
+    service: "analyzer-api",
+    message: "Data Scrapper API Server is online",
+    healthCheck: "/api/health",
+  });
+});
 
 app.get("/health/live", (_req: Request, res: Response) => {
   return res.status(200).json({

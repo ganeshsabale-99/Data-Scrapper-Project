@@ -12,6 +12,20 @@ This guide details the complete **AWS Terraform Infrastructure Provisioning** an
 
 ---
 
+## 🌐 Active Deployment Endpoints & Health Status
+
+The following active production endpoints are configured and online:
+
+| Component | Endpoint / URL | Status | Details |
+| :--- | :--- | :---: | :--- |
+| **Frontend Web App** | [djn7wfial0d6e.cloudfront.net](https://djn7wfial0d6e.cloudfront.net/) | `Healthy` (HTTP 200) | Served via CloudFront CDN + S3 |
+| **API Detailed Health** | [djn7wfial0d6e.cloudfront.net/api/health](https://djn7wfial0d6e.cloudfront.net/api/health) | `Healthy` (HTTP 200) | Express backend check (Neon DB, S3, SMTP) |
+| **API Liveness Check** | [djn7wfial0d6e.cloudfront.net/api/health/live](https://djn7wfial0d6e.cloudfront.net/api/health/live) | `Healthy` (HTTP 200) | Direct container liveness status |
+| **Direct VM Port** | `http://15.252.14.73:4000/health` | `Healthy` (HTTP 200) | Direct EC2 access |
+| **Nginx Proxied Port** | `http://15.252.14.73/api/health` | `Healthy` (HTTP 200) | EC2 web server HTTP (80) proxy |
+
+---
+
 ## 🏗️ 1. Provision Infrastructure with Terraform
 
 Ensure your AWS CLI credentials are configured (`aws configure`).

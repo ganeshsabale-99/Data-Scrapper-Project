@@ -224,6 +224,7 @@ resource "aws_cloudfront_distribution" "frontend_cdn" {
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
+  price_class         = "PriceClass_100"
 
   origin {
     domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
@@ -262,7 +263,7 @@ resource "aws_cloudfront_distribution" "frontend_cdn" {
   }
 
   ordered_cache_behavior {
-    path_pattern     = "/api/*"
+    path_pattern     = "/api*"
     allowed_methods  = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "EC2-${aws_instance.backend.id}"
