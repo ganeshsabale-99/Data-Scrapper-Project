@@ -16,32 +16,25 @@ export const calculateDuplicationScore = async (params: {
     const { name, lat, lng, state, city, propertyManagerEmail, spocPhone } = params;
     let score = 0;
 
+    const allParksInCity = await prismaInstance.newTechPark.findMany({
+        where: { state, city, is_active: true },
+        select: { name: true, lat: true, lng: true }
+    });
+
     // 1. Proximity Check (Haversine distance)
     // Check for other tech parks within 300 meters
-    const nearbyParks = await prismaInstance.$queryRaw<any[]>`
-    SELECT id, name, lat, lng, distance
-    FROM (
-      SELECT id, name, lat, lng,
-      (6371 * acos(least(1, greatest(-1, cos(radians(${lat})) * cos(radians(lat)) * cos(radians(lng) - radians(${lng})) + sin(radians(${lat})) * sin(radians(lat)))))) AS distance
-      FROM tech_park."NewTechPark"
-      WHERE state = ${state} AND city = ${city} AND is_active = true
-    ) AS subquery
-    WHERE distance < 0.3
-  `;
+    const nearbyParks = allParksInCity.filter(
+        (p) => p.lat != null && p.lng != null && calculateDistance(lat, lng, p.lat, p.lng) < 0.3
+    );
 
     if (nearbyParks.length > 0) {
         // If there's a park extremely close (within 50m), give it a base score of 50
-        const extremelyClose = nearbyParks.some(p => p.distance < 0.05);
+        const extremelyClose = nearbyParks.some((p) => calculateDistance(lat, lng, p.lat as number, p.lng as number) < 0.05);
         score += extremelyClose ? 50 : 30;
     }
 
     // 2. Name Similarity Check
     // We'll compare the new name with all tech parks in the same city
-    const allParksInCity = await prismaInstance.newTechPark.findMany({
-        where: { state, city, is_active: true },
-        select: { name: true }
-    });
-
     const normalizedNewName = normalizeName(name);
     let maxSimilarity = 0;
 

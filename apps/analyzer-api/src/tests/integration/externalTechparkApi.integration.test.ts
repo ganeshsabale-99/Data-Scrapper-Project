@@ -56,7 +56,7 @@ describe("External Tech Park API", () => {
   });
 
   it("returns 401 when x-api-key is missing", async () => {
-    const response = await request(app).get("/v1/techparks/national");
+    const response = await request(app).get("/v1/national-data");
     assert.equal(response.status, 401);
     assert.equal(response.body.success, false);
     assert.equal(response.body.code, "UNAUTHORIZED");
@@ -85,7 +85,7 @@ describe("External Tech Park API", () => {
     );
 
     const response = await request(app)
-      .get("/v1/techparks/national")
+      .get("/v1/national-data")
       .set("x-api-key", rawApiKey)
       .query({
         state: "Maharashtra",
@@ -105,7 +105,7 @@ describe("External Tech Park API", () => {
     mockAuthorizedApiKeyRecord(["techpark:summary:read"]);
 
     const response = await request(app)
-      .get("/v1/techparks/national")
+      .get("/v1/national-data")
       .set("x-api-key", rawApiKey);
 
     assert.equal(response.status, 403);
