@@ -135,6 +135,10 @@ app.use((req, _res, next) => {
   next();
 });
 
+const bodyLimit = process.env.API_JSON_BODY_LIMIT || "50mb";
+app.use(express.json({ limit: bodyLimit }));
+app.use(express.urlencoded({ extended: true, limit: bodyLimit }));
+
 app.use(requestContextMiddleware);
 app.use(securityHeadersMiddleware);
 app.use(rateLimitMiddleware);
