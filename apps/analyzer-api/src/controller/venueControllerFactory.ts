@@ -206,14 +206,14 @@ export function createVenueController(
       // Sort by parking-problem severity so the sales team can prioritize the
       // worst parking problems first — a plain string sort on parking_score
       // would give HIGH, LOW, MEDIUM, not severity order.
-      const SORTABLE_FIELDS = new Set(["name", "rating", "createdAt", "parking_priority"]);
+      const SORTABLE_FIELDS = new Set(["name", "rating", "createdAt", "parking_priority", "review_issue_score"]);
       const requestedSortBy = getQueryString(req.query.sortBy);
-      const sortBy = requestedSortBy && SORTABLE_FIELDS.has(requestedSortBy) ? requestedSortBy : "name";
+      const sortBy = requestedSortBy && SORTABLE_FIELDS.has(requestedSortBy) ? requestedSortBy : "review_issue_score";
       const requestedSortOrder = getQueryString(req.query.sortOrder);
       const sortOrder: "asc" | "desc" =
         requestedSortOrder === "asc" || requestedSortOrder === "desc"
           ? requestedSortOrder
-          : sortBy === "parking_priority" ? "desc" : "asc";
+          : sortBy === "parking_priority" || sortBy === "review_issue_score" ? "desc" : "asc";
 
       const where: any = {
         state: { equals: state, mode: "insensitive" },
@@ -255,7 +255,15 @@ export function createVenueController(
 
       const [totalItems, items, statusGroups] = await Promise.all([
         model.count({ where }),
-        model.findMany({ where, orderBy: { [sortBy]: sortOrder }, skip, take: pageSize, include: OWNER_SELECT }),
+        model.findMany({
+          where,
+          orderBy: sortBy === "review_issue_score"
+            ? [{ review_issue_score: sortOrder }, { name: "asc" }]
+            : { [sortBy]: sortOrder },
+          skip,
+          take: pageSize,
+          include: OWNER_SELECT,
+        }),
         model.groupBy({ by: ["status"], where, _count: { _all: true } }),
       ]);
 

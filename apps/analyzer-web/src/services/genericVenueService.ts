@@ -38,6 +38,11 @@ export interface VenueCityWiseItem {
   challenges: string | null;
   lat: number | null;
   lng: number | null;
+  review_priority: string | null;
+  review_issue_score: number | null;
+  reviews_analyzed: number;
+  issue_review_count: number;
+  parking_review_count: number;
 }
 
 export interface VenueCityWiseData {

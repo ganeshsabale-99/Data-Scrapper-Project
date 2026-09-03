@@ -9,6 +9,7 @@ import {
   parkingScoreToPriority,
   resolveVenueCity,
 } from "../utils/venueDataQuality";
+import { scoreReviewIssues, type ReviewIssueEvidence } from "../utils/reviewIssuePriority";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
 
@@ -80,6 +81,14 @@ export interface VenueUpsertData {
   parkingPriority: number;
   dedupeKey: string | null;
   doNotCall: boolean;
+  reviewIssueScore: number;
+  reviewPriority: string;
+  reviewIssueCategories: string[];
+  reviewIssueSummary: string | null;
+  reviewEvidence: ReviewIssueEvidence[];
+  reviewsAnalyzed: number;
+  issueReviewCount: number;
+  parkingReviewCount: number;
 }
 
 export interface VenueScraperConfig {
@@ -344,6 +353,7 @@ export async function runVenueScraper(
 
       const reviews: Array<{ text: string }> = details.reviews ?? [];
       const parkingScore = scoreParkingOpportunity(reviews);
+      const reviewIssues = scoreReviewIssues(details.reviews ?? []);
       const photoRef: string | null = details.photos?.[0]?.photo_reference ?? null;
       const businessStatus: string | null = details.business_status ?? null;
 
@@ -372,6 +382,14 @@ export async function runVenueScraper(
         parkingPriority: parkingScoreToPriority(parkingScore),
         dedupeKey: buildDedupeKey(details.name, resolvedCity),
         doNotCall: isClosedBusinessStatus(businessStatus),
+        reviewIssueScore: reviewIssues.score,
+        reviewPriority: reviewIssues.priority,
+        reviewIssueCategories: reviewIssues.categories,
+        reviewIssueSummary: reviewIssues.summary,
+        reviewEvidence: reviewIssues.evidence,
+        reviewsAnalyzed: reviewIssues.reviewsAnalyzed,
+        issueReviewCount: reviewIssues.issueReviewCount,
+        parkingReviewCount: reviewIssues.parkingReviewCount,
       };
 
       await upsertVenue(data, searchCity, addrComponents.state || searchState);

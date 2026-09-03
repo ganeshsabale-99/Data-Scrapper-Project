@@ -2,9 +2,10 @@ import crypto from "crypto";
 import { prismaInstance } from "@repo/db";
 import { logOperationalEvent } from "./serviceHealthLogger";
 import { normalizeStateName } from "../utils/indiaStates";
-import axios from "axios";
+import { fetchGooglePlaces, GooglePlacesRequestError } from "./googlePlacesClient";
 import {
   buildDedupeKey,
+  extractCityFromAddress,
   flagPossibleDuplicatesByKey,
   isClosedBusinessStatus,
   isPlaceholderVenue,
@@ -12,6 +13,7 @@ import {
   parkingScoreToPriority,
   resolveVenueCity,
 } from "../utils/venueDataQuality";
+import { scoreReviewIssues } from "../utils/reviewIssuePriority";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
 
@@ -194,7 +196,8 @@ function computeLeadScore(
 
 function extractAddressComponents(
   addressComponents: Array<{ long_name: string; short_name?: string; types: string[] }>,
-): { district: string; state: string; pincode: string; country: string; countryCode: string } {
+): { locality: string; district: string; state: string; pincode: string; country: string; countryCode: string } {
+  let locality = "";
   let district = "";
   let state = "";
   let pincode = "";
@@ -209,6 +212,10 @@ function extractAddressComponents(
       countryCode = component.short_name ?? "";
     } else if (component.types.includes("administrative_area_level_1")) {
       state = component.long_name;
+    } else if (component.types.includes("locality") && !locality) {
+      locality = component.long_name;
+    } else if (component.types.includes("sublocality_level_1") && !locality) {
+      locality = component.long_name;
     } else if (
       component.types.includes("administrative_area_level_3") &&
       !district
@@ -222,7 +229,7 @@ function extractAddressComponents(
     }
   }
 
-  return { district, state, pincode, country, countryCode };
+  return { locality, district, state, pincode, country, countryCode };
 }
 
 function generateCoworkingId(placeId: string): string {
@@ -239,13 +246,13 @@ async function fetchAllPlacesForQuery(query: string): Promise<any[]> {
     const params: Record<string, string> = { key: API_KEY, query, language: "en", region: "in" };
     if (pageToken) params.pagetoken = pageToken;
 
-    const resp = await axios.get(
+    const data = await fetchGooglePlaces(
       "https://maps.googleapis.com/maps/api/place/textsearch/json",
-      { params },
+      params,
     );
 
-    if (resp.data.results) results.push(...resp.data.results);
-    pageToken = resp.data.next_page_token;
+    if (data.results) results.push(...data.results);
+    pageToken = data.next_page_token;
     // Google requires ~2 s before a next_page_token becomes valid
     if (pageToken) await sleep(2000);
   } while (pageToken);
@@ -294,6 +301,7 @@ export async function getAllIndiaCoworkingSpaces(
             }
           }
         } catch (error) {
+          if (error instanceof GooglePlacesRequestError) throw error;
           console.error(`Error searching "${query}":`, error);
         }
         await sleep(300);
@@ -310,6 +318,7 @@ export async function getAllIndiaCoworkingSpaces(
           }
         }
       } catch (error) {
+        if (error instanceof GooglePlacesRequestError) throw error;
         console.error(`Error searching "${query}":`, error);
       }
       await sleep(300);
@@ -337,14 +346,11 @@ export async function getAllIndiaCoworkingSpaces(
   for (const [placeId, { place, searchCity, searchState }] of allPlacesMap) {
     processed++;
     try {
-      const detailsResp = await axios.get(
+      const detailsData = await fetchGooglePlaces(
         "https://maps.googleapis.com/maps/api/place/details/json",
         {
-          params: {
             key: API_KEY,
             place_id: placeId,
-            language: "en",
-            region: "in",
             fields: [
               "name",
               "formatted_address",
@@ -361,11 +367,10 @@ export async function getAllIndiaCoworkingSpaces(
               "address_components",
               "reviews",
             ].join(","),
-          },
         },
       );
 
-      const details = detailsResp.data.result;
+      const details = detailsData.result;
       if (!details) {
         skipped++;
         continue;
@@ -397,7 +402,13 @@ export async function getAllIndiaCoworkingSpaces(
         continue;
       }
 
-      const { city: resolvedCity, source: citySource } = resolveVenueCity(searchCity, address);
+      // Text Search is biased, not geographically restricted. Brand searches
+      // can return another city, so the result's own address must win.
+      const apiCity = extractCityFromAddress(address)
+        || addrComponents.locality
+        || addrComponents.district
+        || searchCity;
+      const { city: resolvedCity, source: citySource } = resolveVenueCity(apiCity, address);
       if (!resolvedCity) {
         await logToReviewQueue("coworking", placeId, details.name, "missing_city", {
           address,
@@ -414,6 +425,7 @@ export async function getAllIndiaCoworkingSpaces(
 
       const reviews: Array<{ text: string }> = details.reviews ?? [];
       const parkingScore = scoreParkingOpportunity(reviews);
+      const reviewIssues = scoreReviewIssues(details.reviews ?? []);
       const hasPhone = Boolean(details.formatted_phone_number);
       const hasWebsite = Boolean(details.website);
       const leadScore = computeLeadScore(
@@ -453,6 +465,15 @@ export async function getAllIndiaCoworkingSpaces(
           parking_priority: parkingScoreToPriority(parkingScore),
           dedupe_key: dedupeKey,
           do_not_call: doNotCall,
+          review_issue_score: reviewIssues.score,
+          review_priority: reviewIssues.priority,
+          review_issue_categories: reviewIssues.categories,
+          review_issue_summary: reviewIssues.summary,
+          review_evidence: reviewIssues.evidence,
+          reviews_analyzed: reviewIssues.reviewsAnalyzed,
+          issue_review_count: reviewIssues.issueReviewCount,
+          parking_review_count: reviewIssues.parkingReviewCount,
+          review_analyzed_at: new Date(),
           // challenges and campus_size_hint intentionally omitted here so that
           // manual values set by the team are not overwritten on re-scrape
         },
@@ -481,6 +502,15 @@ export async function getAllIndiaCoworkingSpaces(
           parking_priority: parkingScoreToPriority(parkingScore),
           dedupe_key: dedupeKey,
           do_not_call: doNotCall,
+          review_issue_score: reviewIssues.score,
+          review_priority: reviewIssues.priority,
+          review_issue_categories: reviewIssues.categories,
+          review_issue_summary: reviewIssues.summary,
+          review_evidence: reviewIssues.evidence,
+          reviews_analyzed: reviewIssues.reviewsAnalyzed,
+          issue_review_count: reviewIssues.issueReviewCount,
+          parking_review_count: reviewIssues.parkingReviewCount,
+          review_analyzed_at: new Date(),
           exterior_media_urls: [],
           isVerified: false,
         },
@@ -489,6 +519,7 @@ export async function getAllIndiaCoworkingSpaces(
 
       saved++;
     } catch (error) {
+      if (error instanceof GooglePlacesRequestError) throw error;
       failed++;
       console.error(`Failed to process place ${placeId}:`, error);
     }

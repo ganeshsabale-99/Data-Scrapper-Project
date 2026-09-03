@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import axios from "axios";
+import { prismaInstance } from "@repo/db";
 
 // ── Outscraper API interfaces ──────────────────────────────────────────────────
 
@@ -231,6 +232,47 @@ async function fetchGooglePlaceDetails(apiKey: string, placeId: string) {
 
 
 // ── Controllers ───────────────────────────────────────────────────────────────
+
+const VENUE_TYPES = new Set(["techpark", "coworking", "mall", "hospital", "stadium", "airport"]);
+
+/** Return reviews already collected by the full review scraper. */
+export const getStoredVenueReviews = async (req: Request, res: Response): Promise<void> => {
+  const venueType = String(req.query.venueType ?? "").toLowerCase();
+  const venueId = String(req.query.venueId ?? "");
+  const filter = String(req.query.filter ?? "all").toLowerCase();
+  const page = Math.max(1, Number.parseInt(String(req.query.page ?? "1"), 10) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number.parseInt(String(req.query.pageSize ?? "10"), 10) || 10));
+
+  if (!VENUE_TYPES.has(venueType) || !venueId) {
+    res.status(400).json({ success: false, message: "Valid 'venueType' and 'venueId' query params are required." });
+    return;
+  }
+  if (!["all", "issues", "parking"].includes(filter)) {
+    res.status(400).json({ success: false, message: "Filter must be 'all', 'issues', or 'parking'." });
+    return;
+  }
+
+  const baseWhere = { venueType, venueId };
+  const where = {
+    ...baseWhere,
+    ...(filter === "issues" ? { issueScore: { gt: 0 } } : {}),
+    ...(filter === "parking" ? { isParkingRelated: true } : {}),
+  };
+
+  try {
+    const [items, totalItems, all, issues, parking] = await Promise.all([
+      prismaInstance.venueReview.findMany({ where, orderBy: [{ publishedAt: "desc" }, { fetchedAt: "desc" }], skip: (page - 1) * pageSize, take: pageSize }),
+      prismaInstance.venueReview.count({ where }),
+      prismaInstance.venueReview.count({ where: baseWhere }),
+      prismaInstance.venueReview.count({ where: { ...baseWhere, issueScore: { gt: 0 } } }),
+      prismaInstance.venueReview.count({ where: { ...baseWhere, isParkingRelated: true } }),
+    ]);
+    res.json({ success: true, data: { items, page, pageSize, totalItems, totalPages: Math.ceil(totalItems / pageSize), counts: { all, issues, parking } } });
+  } catch (error: unknown) {
+    console.error("[StoredVenueReviews] Error:", error instanceof Error ? error.message : String(error));
+    res.status(500).json({ success: false, message: "Unable to load stored reviews." });
+  }
+};
 
 /** GET /places-reviews?name=&location=&mapUrl= */
 export const getPlaceReviews = async (req: Request, res: Response): Promise<void> => {

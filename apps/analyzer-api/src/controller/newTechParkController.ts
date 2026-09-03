@@ -804,7 +804,7 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
 
     const techParks = await prismaInstance.newTechPark.findMany({
       where,
-      orderBy: { name: 'asc' },
+      orderBy: [{ review_issue_score: 'desc' }, { name: 'asc' }],
       select: {
         id: true,
         name: true,
@@ -821,6 +821,11 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
         map_url: true,
         isVerified: true,
         reviewStatus: true,
+        review_priority: true,
+        review_issue_score: true,
+        reviews_analyzed: true,
+        issue_review_count: true,
+        parking_review_count: true,
         lat: true,
         lng: true,
       },
@@ -869,6 +874,11 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
           spoc_phone: true,
           seating_capacity: true,
           challenges: true,
+          review_priority: true,
+          review_issue_score: true,
+          reviews_analyzed: true,
+          issue_review_count: true,
+          parking_review_count: true,
           lat: true,
           lng: true,
           ownerId: true,

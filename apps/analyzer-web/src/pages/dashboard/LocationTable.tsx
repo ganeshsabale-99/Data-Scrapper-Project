@@ -70,7 +70,19 @@ export type Location = {
   ownerId?: string | null;
   ownerName?: string | null;
   serialNumber?: number;
+  review_priority?: string | null;
+  review_issue_score?: number | null;
+  reviews_analyzed?: number;
+  issue_review_count?: number;
+  parking_review_count?: number;
 };
+
+const reviewPriorityClass = (priority?: string | null) => ({
+  P1_CRITICAL: "bg-red-600 text-white",
+  P2_HIGH: "bg-orange-500 text-white",
+  P3_MEDIUM: "bg-amber-400 text-amber-950",
+  P4_LOW: "bg-emerald-600 text-white",
+}[priority || ""] || "bg-slate-100 text-slate-600");
 
 interface LocationTableProps {
   data: Location[];
@@ -420,6 +432,7 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                       <th className="text-left p-4 font-medium">Contact</th>
                       <th className="text-left p-4 font-medium">Status</th>
                       <th className="text-left p-4 font-medium">Rating</th>
+                      <th className="text-left p-4 font-medium">Priority</th>
                       <th className="text-left p-4 font-medium">Actions</th>
                     </tr>
                   </thead>
@@ -541,6 +554,23 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                               <span className="text-sm text-muted-foreground">Not Available</span>
                             )}
                           </div>
+                        </td>
+
+                        {/* Review issue priority */}
+                        <td className="p-4">
+                          {park.review_priority && park.review_issue_score !== null && park.review_issue_score !== undefined ? (
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge className={reviewPriorityClass(park.review_priority)}>
+                                {park.review_priority.replace("_", " ")}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">Score {park.review_issue_score}/100</span>
+                              <span className="text-[11px] text-muted-foreground">
+                                {park.reviews_analyzed ?? 0} found · {park.issue_review_count ?? 0} issues · {park.parking_review_count ?? 0} parking
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Not analyzed</span>
+                          )}
                         </td>
 
                         {/* Actions */}
@@ -682,6 +712,11 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                         {typeof park.isVerified === "boolean" ? (
                           <Badge className={getWorkflowBadgeClass(getWorkflowStatus(park))}>
                             {getWorkflowBadgeLabel(getWorkflowStatus(park))}
+                          </Badge>
+                        ) : null}
+                        {park.review_priority && park.review_issue_score !== null && park.review_issue_score !== undefined ? (
+                          <Badge className={reviewPriorityClass(park.review_priority)}>
+                            {park.review_priority.replace("_", " ")} · {park.review_issue_score}
                           </Badge>
                         ) : null}
                       </div>

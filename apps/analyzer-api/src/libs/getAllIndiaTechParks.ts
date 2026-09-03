@@ -2,15 +2,17 @@ import crypto from "crypto";
 import { prismaInstance } from "@repo/db";
 import { logOperationalEvent } from "./serviceHealthLogger";
 import { normalizeStateName } from "../utils/indiaStates";
-import axios from "axios";
+import { fetchGooglePlaces, GooglePlacesRequestError } from "./googlePlacesClient";
 import {
   buildDedupeKey,
+  extractCityFromAddress,
   flagPossibleDuplicatesByKey,
   isClosedBusinessStatus,
   isPlaceholderVenue,
   logToReviewQueue,
   resolveVenueCity,
 } from "../utils/venueDataQuality";
+import { scoreReviewIssues } from "../utils/reviewIssuePriority";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
 
@@ -164,13 +166,13 @@ async function fetchAllPlacesForQuery(query: string): Promise<any[]> {
     const params: Record<string, string> = { key: API_KEY, query, language: "en", region: "in" };
     if (pageToken) params.pagetoken = pageToken;
 
-    const resp = await axios.get(
+    const data = await fetchGooglePlaces(
       "https://maps.googleapis.com/maps/api/place/textsearch/json",
-      { params },
+      params,
     );
 
-    if (resp.data.results) results.push(...resp.data.results);
-    pageToken = resp.data.next_page_token;
+    if (data.results) results.push(...data.results);
+    pageToken = data.next_page_token;
     // Google requires ~2 s before a next_page_token becomes valid
     if (pageToken) await sleep(2000);
   } while (pageToken);
@@ -214,6 +216,7 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           }
         }
       } catch (error) {
+        if (error instanceof GooglePlacesRequestError) throw error;
         console.error(`Error searching "${query}":`, error);
       }
       await sleep(300);
@@ -230,7 +233,7 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
   }
 
   // National keyword searches catch well-known parks missed at city level
-  if (!testMode) {
+  if (!testMode && !cityFilter) {
     console.log("\n[National] Running keyword searches...");
     for (const keyword of TECH_PARK_KEYWORDS) {
       const query = `${keyword} India`;
@@ -242,6 +245,7 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           }
         }
       } catch (error) {
+        if (error instanceof GooglePlacesRequestError) throw error;
         console.error(`Error in national search for "${keyword}":`, error);
       }
       await sleep(300);
@@ -260,14 +264,11 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
   for (const [placeId, { place, searchCity, searchState }] of allPlacesMap) {
     processed++;
     try {
-      const detailsResp = await axios.get(
+      const detailsData = await fetchGooglePlaces(
         "https://maps.googleapis.com/maps/api/place/details/json",
         {
-          params: {
             key: API_KEY,
             place_id: placeId,
-            language: "en",
-            region: "in",
             fields: [
               "name",
               "formatted_address",
@@ -283,12 +284,12 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
               "url",
               "address_components",
               "photos",
+              "reviews",
             ].join(","),
-          },
         },
       );
 
-      const details = detailsResp.data.result;
+      const details = detailsData.result;
       if (!details) {
         skipped++;
         await sleep(300);
@@ -323,7 +324,13 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
         continue;
       }
 
-      const apiCity = addr.locality || searchCity || addr.district || null;
+      // Text Search is biased, not geographically restricted. Prefer the
+      // returned address over the city that happened to find this result.
+      const apiCity = extractCityFromAddress(address)
+        || addr.locality
+        || addr.district
+        || searchCity
+        || null;
       const { city: resolvedCity, source: citySource } = resolveVenueCity(apiCity, address);
       if (!resolvedCity) {
         await logToReviewQueue("techpark", placeId, details.name, "missing_city", {
@@ -344,6 +351,7 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
       const businessStatus: string | null = details.business_status || null;
       const dedupeKey = buildDedupeKey(details.name, resolvedCity);
       const doNotCall = isClosedBusinessStatus(businessStatus);
+      const reviewIssues = scoreReviewIssues(details.reviews ?? []);
       const now = new Date();
 
       await prismaInstance.newTechPark.upsert({
@@ -370,6 +378,15 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           photo_url: details.photos?.[0]?.photo_reference || null,
           dedupe_key: dedupeKey,
           do_not_call: doNotCall,
+          review_issue_score: reviewIssues.score,
+          review_priority: reviewIssues.priority,
+          review_issue_categories: reviewIssues.categories,
+          review_issue_summary: reviewIssues.summary,
+          review_evidence: reviewIssues.evidence,
+          reviews_analyzed: reviewIssues.reviewsAnalyzed,
+          issue_review_count: reviewIssues.issueReviewCount,
+          parking_review_count: reviewIssues.parkingReviewCount,
+          review_analyzed_at: now,
           last_seen_at: now,
           // challenges, builder_name, and verification fields are intentionally
           // omitted here so manual values are not overwritten on re-scrape
@@ -398,6 +415,15 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           photo_url: details.photos?.[0]?.photo_reference || null,
           dedupe_key: dedupeKey,
           do_not_call: doNotCall,
+          review_issue_score: reviewIssues.score,
+          review_priority: reviewIssues.priority,
+          review_issue_categories: reviewIssues.categories,
+          review_issue_summary: reviewIssues.summary,
+          review_evidence: reviewIssues.evidence,
+          reviews_analyzed: reviewIssues.reviewsAnalyzed,
+          issue_review_count: reviewIssues.issueReviewCount,
+          parking_review_count: reviewIssues.parkingReviewCount,
+          review_analyzed_at: now,
           is_active: true,
           isVerified: false,
           exterior_media_urls: [],
@@ -409,6 +435,7 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
 
       saved++;
     } catch (error) {
+      if (error instanceof GooglePlacesRequestError) throw error;
       failed++;
       console.error(`Failed to process place ${placeId}:`, error);
     }

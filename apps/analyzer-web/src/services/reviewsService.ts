@@ -34,7 +34,42 @@ export interface ParkingComplaintsResponse {
   data: ParkingComplaintsData;
 }
 
+export type StoredReviewFilter = "all" | "issues" | "parking";
+
+export interface StoredVenueReview {
+  id: string;
+  provider: string;
+  authorName?: string | null;
+  authorImageUrl?: string | null;
+  rating?: number | null;
+  text?: string | null;
+  publishedAt?: string | null;
+  relativeTime?: string | null;
+  issueScore: number;
+  issueCategories: string[];
+  isParkingRelated: boolean;
+}
+
+export interface StoredVenueReviewsResponse {
+  success: boolean;
+  data: {
+    items: StoredVenueReview[];
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    counts: { all: number; issues: number; parking: number };
+  };
+}
+
 export const reviewsService = {
+  async getStoredVenueReviews(venueType: string, venueId: string, filter: StoredReviewFilter, page = 1, pageSize = 10): Promise<StoredVenueReviewsResponse> {
+    const response = await axiosInstance.get<StoredVenueReviewsResponse>("/places-reviews/stored", {
+      params: { venueType, venueId, filter, page, pageSize },
+    });
+    return response.data;
+  },
+
   async getPlaceReviews(name: string, location: string, mapUrl?: string | null): Promise<PlaceReviewsResponse> {
     const response = await axiosInstance.get<PlaceReviewsResponse>("/places-reviews", {
       params: { name, location, ...(mapUrl ? { mapUrl } : {}) },
@@ -49,4 +84,3 @@ export const reviewsService = {
     return response.data;
   },
 };
-

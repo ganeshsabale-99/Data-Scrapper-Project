@@ -1177,6 +1177,11 @@ export default function MockTechParkDashboard() {
         lng: typeof rawItem.lng === "number" ? rawItem.lng : null,
         opening_hours: typeof rawItem.opening_hours === "string" ? rawItem.opening_hours : "",
         status: (rawItem.status || "NOT_CONTACTED").toUpperCase(),
+        review_priority: typeof rawItem.review_priority === "string" ? rawItem.review_priority : null,
+        review_issue_score: typeof rawItem.review_issue_score === "number" ? rawItem.review_issue_score : null,
+        reviews_analyzed: typeof rawItem.reviews_analyzed === "number" ? rawItem.reviews_analyzed : 0,
+        issue_review_count: typeof rawItem.issue_review_count === "number" ? rawItem.issue_review_count : 0,
+        parking_review_count: typeof rawItem.parking_review_count === "number" ? rawItem.parking_review_count : 0,
 
         // Additional fields to prevent data loss on edit
         builder_name: rawItem.builder_name || "",

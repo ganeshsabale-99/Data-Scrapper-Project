@@ -25,6 +25,8 @@ import { AddContactLogModal } from "@/components/tech-parks/AddContactLogModal";
 import type { LucideIcon } from "lucide-react";
 import { PlacesReviews } from "@/components/places-reviews/PlacesReviews";
 import { ParkingComplaintsReviews } from "@/components/places-reviews/ParkingComplaintsReviews";
+import { ReviewIssuePriority } from "@/components/places-reviews/ReviewIssuePriority";
+import { StoredVenueReviews } from "@/components/places-reviews/StoredVenueReviews";
 
 type ApiErrorShape = {
   response?: {
@@ -148,6 +150,14 @@ type TechParkRecord = {
   updatedAt?: string;
   phone?: string;
   coordinates?: string;
+  review_issue_score?: number;
+  review_priority?: string;
+  review_issue_categories?: string[];
+  review_issue_summary?: string;
+  reviews_analyzed?: number;
+  issue_review_count?: number;
+  parking_review_count?: number;
+  review_analyzed_at?: string;
 };
 
 type TechParkStats = {
@@ -934,6 +944,13 @@ export default function TechParkDetailsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Google Reviews Section */}
+      {techPark && (
+        <ReviewIssuePriority data={techPark} />
+      )}
+
+      {techPark && <StoredVenueReviews venueType="techpark" venueId={techPark.id} />}
 
       {/* Google Reviews Section */}
       {techPark && (
