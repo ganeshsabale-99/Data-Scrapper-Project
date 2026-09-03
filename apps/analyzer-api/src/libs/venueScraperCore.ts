@@ -1,6 +1,14 @@
 import { logOperationalEvent } from "./serviceHealthLogger";
 import { fetchGooglePlaces, GooglePlacesRequestError } from "./googlePlacesClient";
 import { normalizeStateName } from "../utils/indiaStates";
+import {
+  buildDedupeKey,
+  isClosedBusinessStatus,
+  isPlaceholderVenue,
+  logToReviewQueue,
+  parkingScoreToPriority,
+  resolveVenueCity,
+} from "../utils/venueDataQuality";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
 
@@ -69,6 +77,9 @@ export interface VenueUpsertData {
   businessStatus: string | null;
   photoRef: string | null;
   parkingScore: "HIGH" | "MEDIUM" | "LOW";
+  parkingPriority: number;
+  dedupeKey: string | null;
+  doNotCall: boolean;
 }
 
 export interface VenueScraperConfig {
@@ -303,22 +314,51 @@ export async function runVenueScraper(
         skipped++;
         continue;
       }
+
+      const lat: number | null = details.geometry?.location?.lat ?? null;
+      const lng: number | null = details.geometry?.location?.lng ?? null;
+      const address: string | null = details.formatted_address ?? null;
+
+      // A test/placeholder Place ID, or a record missing Lat, Lng, AND Address
+      // together, is not a real Google Places result — never write it.
+      if (isPlaceholderVenue({ placeId, lat, lng, address })) {
+        skipped++;
+        continue;
+      }
+
+      const apiCity = addrComponents.locality || searchCity || addrComponents.district || null;
+      const { city: resolvedCity, source: citySource } = resolveVenueCity(apiCity, address);
+      if (!resolvedCity) {
+        await logToReviewQueue(logPrefix, placeId, details.name, "missing_city", {
+          address,
+          searchCity,
+          searchState,
+          addrComponents,
+        });
+        skipped++;
+        continue;
+      }
+      if (citySource === "address_fallback") {
+        logOperationalEvent(`${logPrefix}.city.address_fallback`, { placeId, city: resolvedCity });
+      }
+
       const reviews: Array<{ text: string }> = details.reviews ?? [];
       const parkingScore = scoreParkingOpportunity(reviews);
       const photoRef: string | null = details.photos?.[0]?.photo_reference ?? null;
+      const businessStatus: string | null = details.business_status ?? null;
 
       const data: VenueUpsertData = {
         placeId,
         name: details.name,
-        address: details.formatted_address ?? null,
+        address,
         locality: addrComponents.locality || null,
         district: addrComponents.district || null,
-        city: addrComponents.locality || searchCity || addrComponents.district || null,
+        city: resolvedCity,
         state: normalizeStateName(addrComponents.state) || searchState || null,
         pincode: addrComponents.pincode || null,
         country: addrComponents.country || null,
-        lat: details.geometry?.location?.lat ?? null,
-        lng: details.geometry?.location?.lng ?? null,
+        lat,
+        lng,
         mapUrl: details.url ?? null,
         website: details.website ?? null,
         phone: details.formatted_phone_number ?? null,
@@ -326,9 +366,12 @@ export async function runVenueScraper(
         rating: details.rating ?? null,
         totalRatings: details.user_ratings_total ?? null,
         types,
-        businessStatus: details.business_status ?? null,
+        businessStatus,
         photoRef,
         parkingScore,
+        parkingPriority: parkingScoreToPriority(parkingScore),
+        dedupeKey: buildDedupeKey(details.name, resolvedCity),
+        doNotCall: isClosedBusinessStatus(businessStatus),
       };
 
       await upsertVenue(data, searchCity, addrComponents.state || searchState);

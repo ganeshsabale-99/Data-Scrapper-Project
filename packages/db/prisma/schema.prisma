@@ -239,6 +239,7 @@ model NewTechPark {
   basement_levels        Int?
   spoc_name              String?
   spoc_phone             String?
+  spoc_email             String?
   seating_capacity       Int?
   challenges             String?
   exterior_media_urls    String[]
@@ -247,6 +248,9 @@ model NewTechPark {
   verifiedByUserId       String?
   verifiedAt             DateTime?
   duplication_score      Float?            @default(0)
+  dedupe_key             String?
+  is_possible_duplicate  Boolean           @default(false)
+  do_not_call            Boolean           @default(false)
   reviewStatus           ReviewStatus      @default(PENDING_REVIEW)
   ai_review_summary      Json?
   ownerId                String?
@@ -265,6 +269,8 @@ model NewTechPark {
   @@index([verifiedByUserId])
   @@index([verifiedAt])
   @@index([ownerId])
+  @@index([dedupe_key])
+  @@index([do_not_call])
 }
 
 
@@ -447,6 +453,9 @@ model CoworkingSpace {
   campus_brand        String?
   legal_entity        String?
   campus_size_hint    String?
+  business_status     String?
+  parking_priority    Int                @default(0)
+  is_active           Boolean            @default(true)
   status              Status             @default(NOT_CONTACTED)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
@@ -467,9 +476,13 @@ model CoworkingSpace {
   basement_levels     Int?
   spoc_name           String?
   spoc_phone          String?
+  spoc_email          String?
   seating_capacity    Int?
   challenges          String?
   exterior_media_urls String[]
+  dedupe_key          String?
+  is_possible_duplicate Boolean          @default(false)
+  do_not_call         Boolean            @default(false)
   isVerified          Boolean            @default(false)
   verifiedAt          DateTime?
   verifiedByUserId    String?
@@ -484,6 +497,10 @@ model CoworkingSpace {
   @@index([state, city])
   @@index([status])
   @@index([ownerId])
+  @@index([dedupe_key])
+  @@index([is_active])
+  @@index([do_not_call])
+  @@index([parking_priority])
 }
 
 model CoworkingCompany {
@@ -624,14 +641,19 @@ model Mall {
   types               String[]
   business_status     String?
   parking_score       String?
+  parking_priority    Int       @default(0)
   status              Status    @default(NOT_CONTACTED)
   is_active           Boolean   @default(true)
   isVerified          Boolean   @default(false)
   verifiedAt          DateTime?
   spoc_name           String?
   spoc_phone          String?
+  spoc_email          String?
   challenges          String?
   notes_internal      String?
+  dedupe_key          String?
+  is_possible_duplicate Boolean @default(false)
+  do_not_call         Boolean   @default(false)
   first_seen_at       DateTime?
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
@@ -646,6 +668,9 @@ model Mall {
   @@index([status])
   @@index([is_active])
   @@index([ownerId])
+  @@index([dedupe_key])
+  @@index([do_not_call])
+  @@index([parking_priority])
 }
 
 model Hospital {
@@ -672,14 +697,19 @@ model Hospital {
   types               String[]
   business_status     String?
   parking_score       String?
+  parking_priority    Int       @default(0)
   status              Status    @default(NOT_CONTACTED)
   is_active           Boolean   @default(true)
   isVerified          Boolean   @default(false)
   verifiedAt          DateTime?
   spoc_name           String?
   spoc_phone          String?
+  spoc_email          String?
   challenges          String?
   notes_internal      String?
+  dedupe_key          String?
+  is_possible_duplicate Boolean @default(false)
+  do_not_call         Boolean   @default(false)
   first_seen_at       DateTime?
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
@@ -694,6 +724,9 @@ model Hospital {
   @@index([status])
   @@index([is_active])
   @@index([ownerId])
+  @@index([dedupe_key])
+  @@index([do_not_call])
+  @@index([parking_priority])
 }
 
 model Stadium {
@@ -720,14 +753,19 @@ model Stadium {
   types               String[]
   business_status     String?
   parking_score       String?
+  parking_priority    Int       @default(0)
   status              Status    @default(NOT_CONTACTED)
   is_active           Boolean   @default(true)
   isVerified          Boolean   @default(false)
   verifiedAt          DateTime?
   spoc_name           String?
   spoc_phone          String?
+  spoc_email          String?
   challenges          String?
   notes_internal      String?
+  dedupe_key          String?
+  is_possible_duplicate Boolean @default(false)
+  do_not_call         Boolean   @default(false)
   first_seen_at       DateTime?
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
@@ -742,6 +780,9 @@ model Stadium {
   @@index([status])
   @@index([is_active])
   @@index([ownerId])
+  @@index([dedupe_key])
+  @@index([do_not_call])
+  @@index([parking_priority])
 }
 
 model Airport {
@@ -768,14 +809,19 @@ model Airport {
   types               String[]
   business_status     String?
   parking_score       String?
+  parking_priority    Int       @default(0)
   status              Status    @default(NOT_CONTACTED)
   is_active           Boolean   @default(true)
   isVerified          Boolean   @default(false)
   verifiedAt          DateTime?
   spoc_name           String?
   spoc_phone          String?
+  spoc_email          String?
   challenges          String?
   notes_internal      String?
+  dedupe_key          String?
+  is_possible_duplicate Boolean @default(false)
+  do_not_call         Boolean   @default(false)
   first_seen_at       DateTime?
   last_seen_at        DateTime?
   createdAt           DateTime  @default(now())
@@ -790,6 +836,9 @@ model Airport {
   @@index([status])
   @@index([is_active])
   @@index([ownerId])
+  @@index([dedupe_key])
+  @@index([do_not_call])
+  @@index([parking_priority])
 }
 
 enum AdminUserStatus {
@@ -820,11 +869,29 @@ enum ActivityAction {
 enum Status {
   NOT_CONTACTED
   CONTACTED
+  SPOC_IDENTIFIED
   INTERESTED
+  NOT_INTERESTED
   MEETING_SCHEDULED
   PROPOSAL_SENT
   IN_PROGRESS
   CLOSED
+}
+
+// Records the scraper could not safely write (e.g. City could not be resolved
+// even after the Address fallback) so they can be fixed by hand instead of
+// silently landing in an export with a blank required field.
+model ScrapeReviewQueue {
+  id        String   @id @default(cuid())
+  venueType String
+  placeId   String?
+  name      String?
+  reason    String
+  rawData   Json?
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([venueType, resolved])
 }
 
 enum ContactLogType {

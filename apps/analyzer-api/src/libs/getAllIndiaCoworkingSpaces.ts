@@ -3,6 +3,15 @@ import { prismaInstance } from "@repo/db";
 import { logOperationalEvent } from "./serviceHealthLogger";
 import { normalizeStateName } from "../utils/indiaStates";
 import axios from "axios";
+import {
+  buildDedupeKey,
+  flagPossibleDuplicatesByKey,
+  isClosedBusinessStatus,
+  isPlaceholderVenue,
+  logToReviewQueue,
+  parkingScoreToPriority,
+  resolveVenueCity,
+} from "../utils/venueDataQuality";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
 
@@ -376,6 +385,33 @@ export async function getAllIndiaCoworkingSpaces(
         skipped++;
         continue;
       }
+
+      const lat: number | null = details.geometry?.location?.lat ?? null;
+      const lng: number | null = details.geometry?.location?.lng ?? null;
+      const address: string | null = details.formatted_address || null;
+
+      // A test/placeholder Place ID, or a record missing Lat, Lng, AND Address
+      // together, is not a real Google Places result — never write it.
+      if (isPlaceholderVenue({ placeId, lat, lng, address })) {
+        skipped++;
+        continue;
+      }
+
+      const { city: resolvedCity, source: citySource } = resolveVenueCity(searchCity, address);
+      if (!resolvedCity) {
+        await logToReviewQueue("coworking", placeId, details.name, "missing_city", {
+          address,
+          searchCity,
+          searchState,
+          addrComponents,
+        });
+        skipped++;
+        continue;
+      }
+      if (citySource === "address_fallback") {
+        logOperationalEvent("coworking.city.address_fallback", { placeId, city: resolvedCity });
+      }
+
       const reviews: Array<{ text: string }> = details.reviews ?? [];
       const parkingScore = scoreParkingOpportunity(reviews);
       const hasPhone = Boolean(details.formatted_phone_number);
@@ -389,19 +425,22 @@ export async function getAllIndiaCoworkingSpaces(
       );
       const brand = detectBrand(details.name);
       const coworkingId = generateCoworkingId(placeId);
+      const businessStatus: string | null = details.business_status || null;
+      const dedupeKey = buildDedupeKey(details.name, resolvedCity);
+      const doNotCall = isClosedBusinessStatus(businessStatus);
 
       await prismaInstance.coworkingSpace.upsert({
         where: { id: coworkingId },
         update: {
           name: details.name,
-          city: searchCity,
+          city: resolvedCity,
           state: normalizeStateName(addrComponents.state) || searchState,
           district: addrComponents.district || null,
           pincode: addrComponents.pincode || null,
           country: addrComponents.country || "India",
-          address: details.formatted_address || null,
-          lat: details.geometry?.location.lat ?? null,
-          lng: details.geometry?.location.lng ?? null,
+          address,
+          lat,
+          lng,
           map_url: details.url || null,
           website: hasWebsite ? details.website : null,
           contact_phone: details.formatted_phone_number || null,
@@ -410,20 +449,24 @@ export async function getAllIndiaCoworkingSpaces(
           total_ratings: details.user_ratings_total ?? null,
           campus_brand: brand,
           operator_name: brand,
+          business_status: businessStatus,
+          parking_priority: parkingScoreToPriority(parkingScore),
+          dedupe_key: dedupeKey,
+          do_not_call: doNotCall,
           // challenges and campus_size_hint intentionally omitted here so that
           // manual values set by the team are not overwritten on re-scrape
         },
         create: {
           id: coworkingId,
           name: details.name,
-          city: searchCity,
+          city: resolvedCity,
           state: normalizeStateName(addrComponents.state) || searchState,
           district: addrComponents.district || null,
           pincode: addrComponents.pincode || null,
           country: addrComponents.country || "India",
-          address: details.formatted_address || null,
-          lat: details.geometry?.location.lat ?? null,
-          lng: details.geometry?.location.lng ?? null,
+          address,
+          lat,
+          lng,
           map_url: details.url || null,
           website: hasWebsite ? details.website : null,
           contact_phone: details.formatted_phone_number || null,
@@ -434,10 +477,15 @@ export async function getAllIndiaCoworkingSpaces(
           operator_name: brand,
           campus_size_hint: leadScore,
           challenges: parkingScore,
+          business_status: businessStatus,
+          parking_priority: parkingScoreToPriority(parkingScore),
+          dedupe_key: dedupeKey,
+          do_not_call: doNotCall,
           exterior_media_urls: [],
           isVerified: false,
         },
       });
+      await flagPossibleDuplicatesByKey(prismaInstance.coworkingSpace, dedupeKey);
 
       saved++;
     } catch (error) {

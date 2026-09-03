@@ -1,0 +1,444 @@
+{
+  "info": {
+    "name": "Gupio Analyzer — External API",
+    "description": "Read-only, API-key-authenticated external API for venue/lead data (Tech Parks, Coworking Spaces, Malls, Hospitals, Stadiums, Airports, Leads). Mounted at both /v1 and /external-integration (identical routes, pick either as {{basePrefix}}). See EXTERNAL_API_ARCHITECTURE.md for the full design.\n\nSetup order:\n1. Run 'Admin Auth & Key Setup > Login' to get a JWT (sets {{jwtToken}} automatically).\n2. Run 'Create External Client' (sets {{clientId}} automatically).\n3. Run 'Issue External API Key' with the scopes you need (sets {{apiKey}} automatically from the one-time rawKey).\n4. Run any request under the venue folders — they use {{apiKey}} via the x-api-key header.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000" },
+    { "key": "basePrefix", "value": "/v1" },
+    { "key": "jwtToken", "value": "" },
+    { "key": "adminEmail", "value": "" },
+    { "key": "adminPassword", "value": "" },
+    { "key": "clientId", "value": "" },
+    { "key": "apiKeyId", "value": "" },
+    { "key": "apiKey", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Admin Auth & Key Setup (JWT-authenticated, not part of the external API itself)",
+      "item": [
+        {
+          "name": "Login (get JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const token = body.token || body.accessToken || body.data?.token;",
+                  "if (token) { pm.collectionVariables.set('jwtToken', token); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Requires a SYSTEM.SUPER_ADMIN admin user (super-admin only can manage external clients/keys). Response shape may include MFA/OTP steps depending on account config — check INTERNAL_ISSUES.md / authRouter.ts if login doesn't return a token directly."
+          }
+        },
+        {
+          "name": "Create External Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const id = body.data?.id;",
+                  "if (id) { pm.collectionVariables.set('clientId', id); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Client\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/external/clients",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "external", "clients"]
+            }
+          }
+        },
+        {
+          "name": "Issue External API Key",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "const rawKey = body.data?.rawKey;",
+                  "const id = body.data?.id;",
+                  "if (rawKey) { pm.collectionVariables.set('apiKey', rawKey); }",
+                  "if (id) { pm.collectionVariables.set('apiKeyId', id); }",
+                  "// rawKey is shown ONCE by the server and cannot be retrieved again — Postman just saved it to {{apiKey}} for you."
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{jwtToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Postman test key\",\n  \"rateLimitPerMinute\": 120,\n  \"scopes\": [\n    \"techpark:national:read\",\n    \"coworking:national:read\",\n    \"mall:national:read\",\n    \"hospital:national:read\",\n    \"stadium:national:read\",\n    \"airport:national:read\",\n    \"leads:read\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/external/keys",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "external", "keys"]
+            },
+            "description": "scopes accepts exact strings, a global '*', or a prefix wildcard like 'techpark:*'. Pass only the scopes you actually need."
+          }
+        },
+        {
+          "name": "List External Clients",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/external/clients",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "external", "clients"]
+            }
+          }
+        },
+        {
+          "name": "Revoke External API Key",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{jwtToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/admin/external/keys/{{apiKeyId}}/revoke",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "external", "keys", "{{apiKeyId}}", "revoke"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "External API",
+      "auth": {
+        "type": "apikey",
+        "apikey": [
+          { "key": "key", "value": "x-api-key" },
+          { "key": "value", "value": "{{apiKey}}" },
+          { "key": "in", "value": "header" }
+        ]
+      },
+      "item": [
+        {
+          "name": "Ping (no auth)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": { "type": "noauth" },
+            "url": {
+              "raw": "{{baseUrl}}{{basePrefix}}/ping",
+              "host": ["{{baseUrl}}"],
+              "path": ["{{basePrefix}}", "ping"]
+            }
+          }
+        },
+        {
+          "name": "Tech Parks",
+          "item": [
+            {
+              "name": "List national tech parks",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/national-data?page=1&limit=50&state=&city=&status=&verified=&includeContacts=false",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "national-data"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "state", "value": "", "description": "e.g. Karnataka" },
+                    { "key": "city", "value": "", "description": "e.g. Bengaluru" },
+                    { "key": "status", "value": "", "description": "NOT_CONTACTED | CONTACTED | INTERESTED | MEETING_SCHEDULED | PROPOSAL_SENT | IN_PROGRESS | CLOSED | ALL" },
+                    { "key": "verified", "value": "", "description": "true | false" },
+                    { "key": "includeContacts", "value": "false", "description": "true to embed the last 50 contact logs per record" }
+                  ]
+                },
+                "description": "Scope required: techpark:national:read"
+              }
+            },
+            {
+              "name": "Get tech park by id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/techparks/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "techparks", ":id"],
+                  "variable": [{ "key": "id", "value": "" }]
+                },
+                "description": "Scope required: techpark:national:read"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Coworking Spaces",
+          "item": [
+            {
+              "name": "List coworking spaces",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/coworking-spaces?page=1&limit=50&state=&city=&status=&verified=&includeContacts=false",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "coworking-spaces"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "state", "value": "" },
+                    { "key": "city", "value": "" },
+                    { "key": "status", "value": "" },
+                    { "key": "verified", "value": "" },
+                    { "key": "includeContacts", "value": "false" }
+                  ]
+                },
+                "description": "Scope required: coworking:national:read"
+              }
+            },
+            {
+              "name": "Get coworking space by id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/coworking-spaces/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "coworking-spaces", ":id"],
+                  "variable": [{ "key": "id", "value": "" }]
+                },
+                "description": "Scope required: coworking:national:read"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Malls",
+          "item": [
+            {
+              "name": "List malls",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/malls?page=1&limit=50&state=&city=&status=&verified=&includeContacts=false",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "malls"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "state", "value": "" },
+                    { "key": "city", "value": "" },
+                    { "key": "status", "value": "" },
+                    { "key": "verified", "value": "" },
+                    { "key": "includeContacts", "value": "false" }
+                  ]
+                },
+                "description": "Scope required: mall:national:read"
+              }
+            },
+            {
+              "name": "Get mall by id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/malls/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "malls", ":id"],
+                  "variable": [{ "key": "id", "value": "" }]
+                },
+                "description": "Scope required: mall:national:read"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hospitals",
+          "item": [
+            {
+              "name": "List hospitals",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/hospitals?page=1&limit=50&state=&city=&status=&verified=&includeContacts=false",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "hospitals"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "state", "value": "" },
+                    { "key": "city", "value": "" },
+                    { "key": "status", "value": "" },
+                    { "key": "verified", "value": "" },
+                    { "key": "includeContacts", "value": "false" }
+                  ]
+                },
+                "description": "Scope required: hospital:national:read"
+              }
+            },
+            {
+              "name": "Get hospital by id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/hospitals/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "hospitals", ":id"],
+                  "variable": [{ "key": "id", "value": "" }]
+                },
+                "description": "Scope required: hospital:national:read"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Stadiums",
+          "item": [
+            {
+              "name": "List stadiums",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/stadiums?page=1&limit=50&state=&city=&status=&verified=&includeContacts=false",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "stadiums"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "state", "value": "" },
+                    { "key": "city", "value": "" },
+                    { "key": "status", "value": "" },
+                    { "key": "verified", "value": "" },
+                    { "key": "includeContacts", "value": "false" }
+                  ]
+                },
+                "description": "Scope required: stadium:national:read"
+              }
+            },
+            {
+              "name": "Get stadium by id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/stadiums/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "stadiums", ":id"],
+                  "variable": [{ "key": "id", "value": "" }]
+                },
+                "description": "Scope required: stadium:national:read"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Airports",
+          "item": [
+            {
+              "name": "List airports",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/airports?page=1&limit=50&state=&city=&status=&verified=&includeContacts=false",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "airports"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "limit", "value": "50" },
+                    { "key": "state", "value": "" },
+                    { "key": "city", "value": "" },
+                    { "key": "status", "value": "" },
+                    { "key": "verified", "value": "" },
+                    { "key": "includeContacts", "value": "false" }
+                  ]
+                },
+                "description": "Scope required: airport:national:read"
+              }
+            },
+            {
+              "name": "Get airport by id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/airports/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "airports", ":id"],
+                  "variable": [{ "key": "id", "value": "" }]
+                },
+                "description": "Scope required: airport:national:read"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Leads",
+          "item": [
+            {
+              "name": "List leads",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/leads?page=1&pageSize=20&city=&lookingFor=&communicationMethod=&type=",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "leads"],
+                  "query": [
+                    { "key": "page", "value": "1" },
+                    { "key": "pageSize", "value": "20" },
+                    { "key": "city", "value": "" },
+                    { "key": "lookingFor", "value": "" },
+                    { "key": "communicationMethod", "value": "" },
+                    { "key": "type", "value": "", "description": "e.g. TRIAL_7_DAY" }
+                  ]
+                },
+                "description": "Scope required: leads:read"
+              }
+            },
+            {
+              "name": "Get lead by id",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}{{basePrefix}}/leads/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["{{basePrefix}}", "leads", ":id"],
+                  "variable": [{ "key": "id", "value": "" }]
+                },
+                "description": "Scope required: leads:read. Note: Lead.id is a numeric (SERIAL) id, not a cuid."
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -11,11 +11,14 @@ import { matchEnumValue } from "../utils/enumSearch";
 import { getPostgresEnumValues } from "../utils/dbEnums";
 import { normalizeCity, getCityAliasMap } from "../utils/cityNormalization";
 import { prismaInstance } from "@repo/db";
+import { findOutreachFieldsBlockedByContactStatus } from "../utils/venueDataQuality";
 
 const VALID_STATUSES = [
   "NOT_CONTACTED",
   "CONTACTED",
+  "SPOC_IDENTIFIED",
   "INTERESTED",
+  "NOT_INTERESTED",
   "MEETING_SCHEDULED",
   "PROPOSAL_SENT",
   "IN_PROGRESS",
@@ -197,7 +200,20 @@ export function createVenueController(
       const pageSize = Math.max(1, Math.min(100, Number(getQueryString(req.query.pageSize)) || 10));
       const search = getQueryString(req.query.search);
       const verifiedFilter = getQueryString(req.query.verified);
+      const parkingScoreFilter = getQueryString(req.query.parkingScore); // 'HIGH' | 'MEDIUM' | 'LOW'
       const skip = (page - 1) * pageSize;
+
+      // Sort by parking-problem severity so the sales team can prioritize the
+      // worst parking problems first — a plain string sort on parking_score
+      // would give HIGH, LOW, MEDIUM, not severity order.
+      const SORTABLE_FIELDS = new Set(["name", "rating", "createdAt", "parking_priority"]);
+      const requestedSortBy = getQueryString(req.query.sortBy);
+      const sortBy = requestedSortBy && SORTABLE_FIELDS.has(requestedSortBy) ? requestedSortBy : "name";
+      const requestedSortOrder = getQueryString(req.query.sortOrder);
+      const sortOrder: "asc" | "desc" =
+        requestedSortOrder === "asc" || requestedSortOrder === "desc"
+          ? requestedSortOrder
+          : sortBy === "parking_priority" ? "desc" : "asc";
 
       const where: any = {
         state: { equals: state, mode: "insensitive" },
@@ -210,6 +226,10 @@ export function createVenueController(
 
       if (verifiedFilter === "VERIFIED") { where.isVerified = true; }
       else if (verifiedFilter === "UNVERIFIED") { where.isVerified = false; }
+
+      if (parkingScoreFilter && ["HIGH", "MEDIUM", "LOW"].includes(parkingScoreFilter.toUpperCase())) {
+        where.parking_score = parkingScoreFilter.toUpperCase();
+      }
 
       if (search && search.trim()) {
         const trimmed = search.trim();
@@ -235,7 +255,7 @@ export function createVenueController(
 
       const [totalItems, items, statusGroups] = await Promise.all([
         model.count({ where }),
-        model.findMany({ where, orderBy: { name: "asc" }, skip, take: pageSize, include: OWNER_SELECT }),
+        model.findMany({ where, orderBy: { [sortBy]: sortOrder }, skip, take: pageSize, include: OWNER_SELECT }),
         model.groupBy({ by: ["status"], where, _count: { _all: true } }),
       ]);
 
@@ -316,6 +336,15 @@ export function createVenueController(
         return res.status(400).json({ success: false, message: "Name, city, and state are required" });
       }
 
+      const requestedStatus = typeof rest.status === "string" ? rest.status : "NOT_CONTACTED";
+      const blockedFields = findOutreachFieldsBlockedByContactStatus(rest, requestedStatus);
+      if (blockedFields.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `${entityLabel} is NOT_CONTACTED — advance Contact Status before setting ${blockedFields.join(", ")}. These are outreach-sourced fields, not scrape-sourced.`,
+        });
+      }
+
       const scope = getDataScopeFromRequest(req);
       if (!canAccessStateCity(scope, resolvedState, resolvedCity)) {
         return res.status(403).json({ success: false, message: "You do not have access to create records in this location" });
@@ -353,6 +382,7 @@ export function createVenueController(
           rating: rest.rating != null ? Number(rest.rating) : null,
           spoc_name: rest.spoc_name || null,
           spoc_phone: rest.spoc_phone || null,
+          spoc_email: rest.spoc_email || null,
           challenges: rest.challenges || null,
           notes_internal: rest.notes_internal || null,
           status: rest.status || "NOT_CONTACTED",
@@ -389,6 +419,15 @@ export function createVenueController(
       const nextCity = updateData?.city ?? existing.city;
       if (!canAccessStateCity(scope, nextState, nextCity)) {
         return res.status(403).json({ success: false, message: "You do not have access to move this record to the selected location" });
+      }
+
+      const effectiveStatus = updateData.status ?? existing.status;
+      const blockedFields = findOutreachFieldsBlockedByContactStatus(updateData, effectiveStatus);
+      if (blockedFields.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `${entityLabel} is NOT_CONTACTED — advance Contact Status before setting ${blockedFields.join(", ")}. These are outreach-sourced fields, not scrape-sourced.`,
+        });
       }
 
       if (updateData.lat != null) updateData.lat = Number(updateData.lat);

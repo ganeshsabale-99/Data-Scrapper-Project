@@ -3,6 +3,7 @@ import { prismaInstance } from "@repo/db";
 import ExcelJS from "exceljs";
 import { getQueryString } from "../utils/queryUtils";
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
+import { runExportValidation, type ExportDataset } from "../utils/exportValidation";
 
 // The PDF report is built by string-concatenating DB-sourced text into HTML that a
 // headless browser then renders — any unescaped field is an HTML/script injection point.
@@ -23,6 +24,85 @@ const GENERIC_VENUE_MODELS: Record<string, { model: any; label: string; singular
     airport: { model: prismaInstance.airport, label: 'Airports', singularLabel: 'Airport' },
 };
 
+// CLOSED_PERMANENTLY / CLOSED_TEMPORARILY listings are tagged `do_not_call` at
+// scrape time (see venueDataQuality.ts) and are excluded from every export by
+// default so a sales rep never wastes a call on a dead listing. Pass
+// includeDoNotCall=true to include them anyway (still tagged in the output).
+const applyDoNotCallFilter = (where: any, includeDoNotCall: boolean) => {
+    if (!includeDoNotCall) where.do_not_call = false;
+};
+
+/**
+ * Pre-export validation pass (requirement #6): before any file is produced,
+ * assert City is non-null on 100% of rows, Latitude/Longitude/Address are
+ * non-null on 100% of real (non-test) rows, and per-category counts
+ * reconcile with the grand total. Runs lightweight `select`-only queries
+ * against the same filters the export itself uses, so it fails fast without
+ * needing to build the whole workbook first.
+ */
+async function collectExportValidationDatasets(
+    entityType: string,
+    statusFilter: string,
+    state: string | undefined,
+    city: string | undefined,
+    includeDoNotCall: boolean,
+): Promise<ExportDataset[]> {
+    const SELECT = { id: true, place_id: true, city: true, lat: true, lng: true, address: true };
+    // CoworkingSpace has no place_id column (it's keyed by a hash-based id,
+    // not tied to a Google Place ID like the other 5 venue models).
+    const COWORKING_SELECT = { id: true, city: true, lat: true, lng: true, address: true };
+    const datasets: ExportDataset[] = [];
+
+    const wantsTechPark = entityType === 'techPark' || entityType === 'all';
+    const wantsCoworking = entityType === 'coworkingSpace' || entityType === 'all';
+    const genericKeys = entityType === 'all'
+        ? Object.keys(GENERIC_VENUE_MODELS)
+        : (entityType in GENERIC_VENUE_MODELS ? [entityType] : []);
+
+    if (wantsTechPark) {
+        const where: any = { is_active: true };
+        if (statusFilter === 'verified') where.isVerified = true;
+        if (statusFilter === 'unverified') where.isVerified = false;
+        if (state) where.state = { equals: state, mode: 'insensitive' };
+        if (city) where.city = { equals: city, mode: 'insensitive' };
+        applyDoNotCallFilter(where, includeDoNotCall);
+        const rows = await prismaInstance.newTechPark.findMany({
+            where,
+            select: { ...SELECT, address_line1: true },
+        });
+        datasets.push({
+            label: 'Tech Parks',
+            rows: rows.map((r) => ({ ...r, address: r.address_line1 })),
+        });
+    }
+
+    if (wantsCoworking) {
+        const where: any = {};
+        if (statusFilter === 'verified') where.isVerified = true;
+        if (statusFilter === 'unverified') where.isVerified = false;
+        if (state) where.state = { equals: state, mode: 'insensitive' };
+        if (city) where.city = { equals: city, mode: 'insensitive' };
+        applyDoNotCallFilter(where, includeDoNotCall);
+        const rows = await prismaInstance.coworkingSpace.findMany({ where, select: COWORKING_SELECT });
+        datasets.push({ label: 'Coworking Spaces', rows });
+    }
+
+    for (const key of genericKeys) {
+        const entry = GENERIC_VENUE_MODELS[key];
+        if (!entry) continue;
+        const where: any = { is_active: true };
+        if (statusFilter === 'verified') where.isVerified = true;
+        if (statusFilter === 'unverified') where.isVerified = false;
+        if (state) where.state = { equals: state, mode: 'insensitive' };
+        if (city) where.city = { equals: city, mode: 'insensitive' };
+        applyDoNotCallFilter(where, includeDoNotCall);
+        const rows = await entry.model.findMany({ where, select: SELECT });
+        datasets.push({ label: entry.label, rows });
+    }
+
+    return datasets;
+}
+
 export const exportData = async (req: Request, res: Response) => {
     try {
         const entityType = getQueryString(req.query.entityType) || 'all'; // techPark, coworkingSpace, mall, hospital, stadium, airport, all
@@ -30,30 +110,44 @@ export const exportData = async (req: Request, res: Response) => {
         const state = getQueryString(req.query.state);
         const city = getQueryString(req.query.city);
         const format = getQueryString(req.query.format) || 'excel'; // excel, csv, pdf
+        const includeDoNotCall = getQueryString(req.query.includeDoNotCall) === 'true';
+
+        const validationDatasets = await collectExportValidationDatasets(
+            entityType, status, state, city, includeDoNotCall,
+        );
+        const validation = runExportValidation(validationDatasets);
+        if (!validation.ok) {
+            return res.status(422).json({
+                success: false,
+                message: "Export failed pre-export validation and was not generated.",
+                issues: validation.issues,
+                totals: validation.totals,
+            });
+        }
 
         if (format === 'pdf') {
-            await generatePdf(res, entityType, status, state, city);
+            await generatePdf(res, entityType, status, state, city, includeDoNotCall);
             return;
         }
 
         const workbook = new ExcelJS.Workbook();
 
         if (format === 'csv' && entityType === 'all') {
-            await addUnifiedSheet(workbook, status, state, city);
+            await addUnifiedSheet(workbook, status, state, city, includeDoNotCall);
         } else {
             if (entityType === 'techPark' || entityType === 'all') {
-                await addTechParkSheet(workbook, status, state, city);
+                await addTechParkSheet(workbook, status, state, city, includeDoNotCall);
             }
 
             if (entityType === 'coworkingSpace' || entityType === 'all') {
-                await addCoworkingSheet(workbook, status, state, city);
+                await addCoworkingSheet(workbook, status, state, city, includeDoNotCall);
             }
 
             if (entityType in GENERIC_VENUE_MODELS) {
-                await addGenericVenueSheet(workbook, entityType, status, state, city);
+                await addGenericVenueSheet(workbook, entityType, status, state, city, includeDoNotCall);
             } else if (entityType === 'all') {
                 for (const key of Object.keys(GENERIC_VENUE_MODELS)) {
-                    await addGenericVenueSheet(workbook, key, status, state, city);
+                    await addGenericVenueSheet(workbook, key, status, state, city, includeDoNotCall);
                 }
             }
         }
@@ -78,7 +172,7 @@ export const exportData = async (req: Request, res: Response) => {
     }
 };
 
-async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string) {
+async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string, includeDoNotCall = false) {
     const sheet = workbook.addWorksheet('Tech Parks');
 
     const where: any = { is_active: true };
@@ -86,6 +180,7 @@ async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string
     if (statusFilter === 'unverified') where.isVerified = false;
     if (state) where.state = { equals: state, mode: 'insensitive' };
     if (city) where.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(where, includeDoNotCall);
 
     const techParks = await prismaInstance.newTechPark.findMany({
         where,
@@ -137,13 +232,16 @@ async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string
         { header: 'Basement Levels', key: 'basement_levels', width: 15 },
         { header: 'SPOC Name', key: 'spoc_name', width: 20 },
         { header: 'SPOC Phone', key: 'spoc_phone', width: 15 },
+        { header: 'SPOC Email', key: 'spoc_email', width: 25 },
         { header: 'Seating Capacity', key: 'seating_capacity', width: 15 },
         { header: 'Challenges', key: 'challenges', width: 25 },
         { header: 'First Seen At', key: 'first_seen_at', width: 20 },
         { header: 'Last Seen At', key: 'last_seen_at', width: 20 },
-        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Contact Status', key: 'status', width: 18 },
         { header: 'Review Status', key: 'reviewStatus', width: 15 },
         { header: 'Duplication Score', key: 'duplication_score', width: 15 },
+        { header: 'Possible Duplicate', key: 'is_possible_duplicate', width: 15 },
+        { header: 'Do Not Call', key: 'do_not_call', width: 12 },
         { header: 'Verified', key: 'isVerified', width: 10 },
         { header: 'Verified By', key: 'verifiedByUserId', width: 20 },
         { header: 'Verified At', key: 'verifiedAt', width: 20 },
@@ -157,6 +255,8 @@ async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string
             types: park.types ? park.types.join(', ') : '',
             is_active: park.is_active ? 'Yes' : 'No',
             isVerified: park.isVerified ? 'Yes' : 'No',
+            is_possible_duplicate: park.is_possible_duplicate ? 'Yes' : 'No',
+            do_not_call: park.do_not_call ? 'Yes' : 'No',
             createdAt: park.createdAt ? park.createdAt.toISOString() : '',
             updatedAt: park.updatedAt ? park.updatedAt.toISOString() : '',
             first_seen_at: park.first_seen_at ? park.first_seen_at.toISOString() : '',
@@ -168,7 +268,7 @@ async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string
     sheet.getRow(1).font = { bold: true };
 }
 
-async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string) {
+async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string, includeDoNotCall = false) {
     const sheet = workbook.addWorksheet('Coworking Spaces');
 
     const where: any = {};
@@ -176,10 +276,12 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
     if (statusFilter === 'unverified') where.isVerified = false;
     if (state) where.state = { equals: state, mode: 'insensitive' };
     if (city) where.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(where, includeDoNotCall);
 
     const spaces = await prismaInstance.coworkingSpace.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        // Worst parking problems first, so the sales team works the sheet top-down.
+        orderBy: [{ parking_priority: 'desc' }, { createdAt: 'desc' }],
     });
 
     sheet.columns = [
@@ -196,7 +298,8 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
         { header: 'Longitude', key: 'lng', width: 15 },
         { header: 'Map URL', key: 'map_url', width: 25 },
         { header: 'Lead Score', key: 'campus_size_hint', width: 15 },
-        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Contact Status', key: 'status', width: 18 },
+        { header: 'Business Status', key: 'business_status', width: 15 },
         { header: 'Phone', key: 'contact_phone', width: 15 },
         { header: 'International Phone', key: 'international_phone', width: 20 },
         { header: 'Email', key: 'generic_email', width: 25 },
@@ -205,8 +308,10 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
         { header: 'Legal Entity', key: 'legal_entity', width: 20 },
         { header: 'Rating', key: 'rating', width: 10 },
         { header: 'Parking Score', key: 'challenges', width: 15 },
+        { header: 'Parking Priority', key: 'parking_priority', width: 14 },
         { header: 'SPOC Name', key: 'spoc_name', width: 20 },
         { header: 'SPOC Phone', key: 'spoc_phone', width: 15 },
+        { header: 'SPOC Email', key: 'spoc_email', width: 25 },
         { header: 'Property Manager', key: 'property_manager_name', width: 25 },
         { header: 'PM Phone', key: 'property_manager_phone', width: 15 },
         { header: 'PM Email', key: 'property_manager_email', width: 25 },
@@ -214,6 +319,8 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
         { header: 'Parking Floors', key: 'parking_floors', width: 15 },
         { header: 'Basement Levels', key: 'basement_levels', width: 15 },
         { header: 'Seating Capacity', key: 'seating_capacity', width: 15 },
+        { header: 'Possible Duplicate', key: 'is_possible_duplicate', width: 15 },
+        { header: 'Do Not Call', key: 'do_not_call', width: 12 },
         { header: 'Verified', key: 'isVerified', width: 10 },
         { header: 'Verified At', key: 'verifiedAt', width: 20 },
         { header: 'Created At', key: 'createdAt', width: 20 },
@@ -227,13 +334,15 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
             updatedAt: space.updatedAt ? space.updatedAt.toISOString() : '',
             verifiedAt: space.verifiedAt ? space.verifiedAt.toISOString() : '',
             isVerified: space.isVerified ? 'Yes' : 'No',
+            is_possible_duplicate: space.is_possible_duplicate ? 'Yes' : 'No',
+            do_not_call: space.do_not_call ? 'Yes' : 'No',
         });
     });
 
     sheet.getRow(1).font = { bold: true };
 }
 
-async function addGenericVenueSheet(workbook: ExcelJS.Workbook, entityKey: string, statusFilter: string, state?: string, city?: string) {
+async function addGenericVenueSheet(workbook: ExcelJS.Workbook, entityKey: string, statusFilter: string, state?: string, city?: string, includeDoNotCall = false) {
     const entry = GENERIC_VENUE_MODELS[entityKey];
     if (!entry) return;
     const { model, label } = entry;
@@ -244,8 +353,10 @@ async function addGenericVenueSheet(workbook: ExcelJS.Workbook, entityKey: strin
     if (statusFilter === 'unverified') where.isVerified = false;
     if (state) where.state = { equals: state, mode: 'insensitive' };
     if (city) where.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(where, includeDoNotCall);
 
-    const rows = await model.findMany({ where, orderBy: { createdAt: 'desc' } });
+    // Worst parking problems first, so the sales team works the sheet top-down.
+    const rows = await model.findMany({ where, orderBy: [{ parking_priority: 'desc' }, { createdAt: 'desc' }] });
 
     sheet.columns = [
         { header: 'ID', key: 'id', width: 25 },
@@ -269,11 +380,15 @@ async function addGenericVenueSheet(workbook: ExcelJS.Workbook, entityKey: strin
         { header: 'Total Ratings', key: 'total_ratings', width: 15 },
         { header: 'Business Status', key: 'business_status', width: 15 },
         { header: 'Parking Score', key: 'parking_score', width: 15 },
-        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Parking Priority', key: 'parking_priority', width: 14 },
+        { header: 'Contact Status', key: 'status', width: 18 },
         { header: 'SPOC Name', key: 'spoc_name', width: 20 },
         { header: 'SPOC Phone', key: 'spoc_phone', width: 15 },
+        { header: 'SPOC Email', key: 'spoc_email', width: 25 },
         { header: 'Challenges', key: 'challenges', width: 25 },
         { header: 'Internal Notes', key: 'notes_internal', width: 25 },
+        { header: 'Possible Duplicate', key: 'is_possible_duplicate', width: 15 },
+        { header: 'Do Not Call', key: 'do_not_call', width: 12 },
         { header: 'Verified', key: 'isVerified', width: 10 },
         { header: 'Verified At', key: 'verifiedAt', width: 20 },
         { header: 'First Seen At', key: 'first_seen_at', width: 20 },
@@ -287,6 +402,8 @@ async function addGenericVenueSheet(workbook: ExcelJS.Workbook, entityKey: strin
             ...row,
             is_active: row.is_active ? 'Yes' : 'No',
             isVerified: row.isVerified ? 'Yes' : 'No',
+            is_possible_duplicate: row.is_possible_duplicate ? 'Yes' : 'No',
+            do_not_call: row.do_not_call ? 'Yes' : 'No',
             createdAt: row.createdAt ? row.createdAt.toISOString() : '',
             updatedAt: row.updatedAt ? row.updatedAt.toISOString() : '',
             first_seen_at: row.first_seen_at ? row.first_seen_at.toISOString() : '',
@@ -298,7 +415,7 @@ async function addGenericVenueSheet(workbook: ExcelJS.Workbook, entityKey: strin
     sheet.getRow(1).font = { bold: true };
 }
 
-async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string) {
+async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string, includeDoNotCall = false) {
     const sheet = workbook.addWorksheet('All Properties');
 
     sheet.columns = [
@@ -307,12 +424,14 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
         { header: 'Name', key: 'name', width: 30 },
         { header: 'City', key: 'city', width: 15 },
         { header: 'State', key: 'state', width: 15 },
-        { header: 'Status', key: 'status', width: 15 },
+        { header: 'Contact Status', key: 'status', width: 18 },
         { header: 'Verified', key: 'isVerified', width: 10 },
         { header: 'Operator/PM', key: 'operator_pm', width: 20 }, // Shared col
         { header: 'Email', key: 'email', width: 25 },
         { header: 'Phone', key: 'phone', width: 15 },
         { header: 'Address', key: 'address', width: 30 },
+        { header: 'Possible Duplicate', key: 'is_possible_duplicate', width: 15 },
+        { header: 'Do Not Call', key: 'do_not_call', width: 12 },
         { header: 'Created At', key: 'createdAt', width: 20 },
     ];
 
@@ -322,6 +441,7 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
     if (statusFilter === 'unverified') parkWhere.isVerified = false;
     if (state) parkWhere.state = { equals: state, mode: 'insensitive' };
     if (city) parkWhere.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(parkWhere, includeDoNotCall);
     const parks = await prismaInstance.newTechPark.findMany({ where: parkWhere });
 
     // Fetch Spaces
@@ -330,6 +450,7 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
     if (statusFilter === 'unverified') spaceWhere.isVerified = false;
     if (state) spaceWhere.state = { equals: state, mode: 'insensitive' };
     if (city) spaceWhere.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(spaceWhere, includeDoNotCall);
     const spaces = await prismaInstance.coworkingSpace.findMany({ where: spaceWhere });
 
     parks.forEach(park => {
@@ -345,6 +466,8 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
             email: park.property_manager_email || park.generic_email,
             phone: park.spoc_phone || park.reception_phone,
             address: park.address_line1 ? `${park.address_line1}, ${park.address_line2 || ''}` : '',
+            is_possible_duplicate: park.is_possible_duplicate ? 'Yes' : 'No',
+            do_not_call: park.do_not_call ? 'Yes' : 'No',
             createdAt: park.createdAt ? park.createdAt.toISOString() : '',
         });
     });
@@ -362,6 +485,8 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
             email: space.generic_email,
             phone: space.contact_phone,
             address: space.address,
+            is_possible_duplicate: space.is_possible_duplicate ? 'Yes' : 'No',
+            do_not_call: space.do_not_call ? 'Yes' : 'No',
             createdAt: space.createdAt ? space.createdAt.toISOString() : '',
         });
     });
@@ -373,6 +498,7 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
         if (statusFilter === 'unverified') venueWhere.isVerified = false;
         if (state) venueWhere.state = { equals: state, mode: 'insensitive' };
         if (city) venueWhere.city = { equals: city, mode: 'insensitive' };
+        applyDoNotCallFilter(venueWhere, includeDoNotCall);
         const venues = await model.findMany({ where: venueWhere });
 
         venues.forEach((venue: any) => {
@@ -388,6 +514,8 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
                 email: venue.generic_email,
                 phone: venue.spoc_phone || venue.reception_phone,
                 address: venue.address,
+                is_possible_duplicate: venue.is_possible_duplicate ? 'Yes' : 'No',
+                do_not_call: venue.do_not_call ? 'Yes' : 'No',
                 createdAt: venue.createdAt ? venue.createdAt.toISOString() : '',
             });
         });
@@ -398,7 +526,7 @@ async function addUnifiedSheet(workbook: ExcelJS.Workbook, statusFilter: string,
 
 import puppeteer from 'puppeteer';
 
-async function generatePdf(res: Response, entityType: string, statusFilter: string, state?: string, city?: string) {
+async function generatePdf(res: Response, entityType: string, statusFilter: string, state?: string, city?: string, includeDoNotCall = false) {
     const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
     const page = await browser.newPage();
 
@@ -443,12 +571,14 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
     if (statusFilter === 'unverified') parkWhere.isVerified = false;
     if (state) parkWhere.state = { equals: state, mode: 'insensitive' };
     if (city) parkWhere.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(parkWhere, includeDoNotCall);
 
     const spaceWhere: any = {};
     if (statusFilter === 'verified') spaceWhere.isVerified = true;
     if (statusFilter === 'unverified') spaceWhere.isVerified = false;
     if (state) spaceWhere.state = { equals: state, mode: 'insensitive' };
     if (city) spaceWhere.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(spaceWhere, includeDoNotCall);
 
     let rows = '';
 
@@ -500,6 +630,7 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
         if (statusFilter === 'unverified') venueWhere.isVerified = false;
         if (state) venueWhere.state = { equals: state, mode: 'insensitive' };
         if (city) venueWhere.city = { equals: city, mode: 'insensitive' };
+        applyDoNotCallFilter(venueWhere, includeDoNotCall);
         const venues = await model.findMany({ where: venueWhere });
         venues.forEach((venue: any) => {
             const contact = venue.spoc_phone || venue.reception_phone || venue.generic_email || '-';

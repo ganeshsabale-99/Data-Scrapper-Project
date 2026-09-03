@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { prismaInstance } from "@repo/db";
 import { runVenueScraper, VenueScraperConfig, VenueScraperResult, VenueSearchOptions, VenueUpsertData } from "./venueScraperCore";
+import { flagPossibleDuplicatesByKey } from "../utils/venueDataQuality";
 
 export type MallSearchOptions = VenueSearchOptions;
 
@@ -77,6 +78,9 @@ const mallConfig: VenueScraperConfig = {
         types: data.types,
         business_status: data.businessStatus,
         parking_score: data.parkingScore,
+        parking_priority: data.parkingPriority,
+        dedupe_key: data.dedupeKey,
+        do_not_call: data.doNotCall,
         last_seen_at: now,
       },
       create: {
@@ -102,10 +106,14 @@ const mallConfig: VenueScraperConfig = {
         types: data.types,
         business_status: data.businessStatus,
         parking_score: data.parkingScore,
+        parking_priority: data.parkingPriority,
+        dedupe_key: data.dedupeKey,
+        do_not_call: data.doNotCall,
         first_seen_at: now,
         last_seen_at: now,
       },
     });
+    await flagPossibleDuplicatesByKey(prismaInstance.mall, data.dedupeKey);
   },
 };
 

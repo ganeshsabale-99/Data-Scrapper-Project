@@ -16,6 +16,7 @@ import {
 } from "../utils/dataScope";
 import { calculateDuplicationScore } from "../utils/verificationUtils";
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
+import { findOutreachFieldsBlockedByContactStatus } from "../utils/venueDataQuality";
 import { diffObjects } from "../utils/diffUtils";
 import { createActivityLog } from "../libs/activityLogger.service";
 import { ActivityEntityType, ActivityAction } from "@repo/db";
@@ -1279,7 +1280,9 @@ export const changeTechParkStatus = async (req: Request, res: Response) => {
     const validStatuses = [
       "NOT_CONTACTED",
       "CONTACTED",
+      "SPOC_IDENTIFIED",
       "INTERESTED",
+      "NOT_INTERESTED",
       "MEETING_SCHEDULED",
       "PROPOSAL_SENT",
       "IN_PROGRESS",
@@ -2559,6 +2562,7 @@ export const editTechPark = async (
       basement_levels: toOptionalIntOrUndefined(updateData.basement_levels),
       spoc_name: toOptionalTrimmedStringOrUndefined(updateData.spoc_name),
       spoc_phone: normalizePhone10OrUndefined(updateData.spoc_phone),
+      spoc_email: toOptionalTrimmedStringOrUndefined(updateData.spoc_email),
       seating_capacity: toOptionalIntOrUndefined(updateData.seating_capacity),
       challenges: toOptionalTrimmedStringOrUndefined(updateData.challenges),
       lat: toOptionalFloatOrUndefined(updateData.lat),
@@ -2570,6 +2574,17 @@ export const editTechPark = async (
       if (allowedUpdate[k] === undefined) delete allowedUpdate[k];
     });
 
+    // SPOC Name/Phone/Email/Challenges are outreach-sourced (from real sales
+    // calls), never scrape-sourced — don't let them be backfilled while the
+    // record is still NOT_CONTACTED.
+    const effectiveStatus = allowedUpdate.status ?? existingTechPark.status;
+    const blockedOutreachFields = findOutreachFieldsBlockedByContactStatus(allowedUpdate, effectiveStatus);
+    if (blockedOutreachFields.length > 0) {
+      return res.status(400).json({
+        error: `Tech park is NOT_CONTACTED — advance Contact Status before setting ${blockedOutreachFields.join(", ")}. These are outreach-sourced fields, not scrape-sourced.`,
+      });
+    }
+
     // Field-level validation for edits (only when provided)
     if (typeof allowedUpdate.property_manager_phone === "string" && allowedUpdate.property_manager_phone.length !== 10) {
       return res.status(400).json({ error: "Property manager contact must be a 10-digit number." });
@@ -2579,6 +2594,9 @@ export const editTechPark = async (
     }
     if (typeof allowedUpdate.property_manager_email === "string" && !isValidEmail(allowedUpdate.property_manager_email)) {
       return res.status(400).json({ error: "Property manager email must be a valid email ID." });
+    }
+    if (typeof allowedUpdate.spoc_email === "string" && !isValidEmail(allowedUpdate.spoc_email)) {
+      return res.status(400).json({ error: "SPOC email must be a valid email ID." });
     }
     if (typeof allowedUpdate.lat === "number" && (allowedUpdate.lat < -90 || allowedUpdate.lat > 90)) {
       return res.status(400).json({ error: "Latitude must be between -90 and 90." });

@@ -3,6 +3,14 @@ import { prismaInstance } from "@repo/db";
 import { logOperationalEvent } from "./serviceHealthLogger";
 import { normalizeStateName } from "../utils/indiaStates";
 import axios from "axios";
+import {
+  buildDedupeKey,
+  flagPossibleDuplicatesByKey,
+  isClosedBusinessStatus,
+  isPlaceholderVenue,
+  logToReviewQueue,
+  resolveVenueCity,
+} from "../utils/venueDataQuality";
 
 const API_KEY = process.env.GOOGLE_API_KEY!;
 
@@ -302,23 +310,55 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
         await sleep(300);
         continue;
       }
-      const resolvedCity = addr.locality || searchCity || addr.district || null;
+
+      const lat: number | null = details.geometry?.location?.lat ?? null;
+      const lng: number | null = details.geometry?.location?.lng ?? null;
+      const address: string | null = details.formatted_address || null;
+
+      // A test/placeholder Place ID, or a record missing Lat, Lng, AND Address
+      // together, is not a real Google Places result — never write it.
+      if (isPlaceholderVenue({ placeId, lat, lng, address })) {
+        skipped++;
+        await sleep(300);
+        continue;
+      }
+
+      const apiCity = addr.locality || searchCity || addr.district || null;
+      const { city: resolvedCity, source: citySource } = resolveVenueCity(apiCity, address);
+      if (!resolvedCity) {
+        await logToReviewQueue("techpark", placeId, details.name, "missing_city", {
+          address,
+          searchCity,
+          searchState,
+          addr,
+        });
+        skipped++;
+        await sleep(300);
+        continue;
+      }
+      if (citySource === "address_fallback") {
+        logOperationalEvent("techpark.city.address_fallback", { placeId, city: resolvedCity });
+      }
+
       const resolvedState = normalizeStateName(addr.state) || searchState || null;
+      const businessStatus: string | null = details.business_status || null;
+      const dedupeKey = buildDedupeKey(details.name, resolvedCity);
+      const doNotCall = isClosedBusinessStatus(businessStatus);
       const now = new Date();
 
       await prismaInstance.newTechPark.upsert({
         where: { place_id: placeId },
         update: {
           name: details.name,
-          address_line1: details.formatted_address || null,
+          address_line1: address,
           locality: addr.locality || null,
           district: addr.district || null,
           city: resolvedCity,
           state: resolvedState,
           pincode: addr.pincode || null,
           country: addr.country || "India",
-          lat: details.geometry?.location.lat ?? null,
-          lng: details.geometry?.location.lng ?? null,
+          lat,
+          lng,
           map_url: details.url || null,
           website: details.website || null,
           reception_phone: details.formatted_phone_number || null,
@@ -326,8 +366,10 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           rating: details.rating ?? null,
           total_ratings: details.user_ratings_total ?? null,
           types,
-          business_status: details.business_status || null,
+          business_status: businessStatus,
           photo_url: details.photos?.[0]?.photo_reference || null,
+          dedupe_key: dedupeKey,
+          do_not_call: doNotCall,
           last_seen_at: now,
           // challenges, builder_name, and verification fields are intentionally
           // omitted here so manual values are not overwritten on re-scrape
@@ -336,15 +378,15 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           id: generateTechParkId(placeId),
           place_id: placeId,
           name: details.name,
-          address_line1: details.formatted_address || null,
+          address_line1: address,
           locality: addr.locality || null,
           district: addr.district || null,
           city: resolvedCity,
           state: resolvedState,
           pincode: addr.pincode || null,
           country: addr.country || "India",
-          lat: details.geometry?.location.lat ?? null,
-          lng: details.geometry?.location.lng ?? null,
+          lat,
+          lng,
           map_url: details.url || null,
           website: details.website || null,
           reception_phone: details.formatted_phone_number || null,
@@ -352,8 +394,10 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           rating: details.rating ?? null,
           total_ratings: details.user_ratings_total ?? null,
           types,
-          business_status: details.business_status || null,
+          business_status: businessStatus,
           photo_url: details.photos?.[0]?.photo_reference || null,
+          dedupe_key: dedupeKey,
+          do_not_call: doNotCall,
           is_active: true,
           isVerified: false,
           exterior_media_urls: [],
@@ -361,6 +405,7 @@ export async function getAllIndiaTechParks(options: TechParkSearchOptions = {}):
           last_seen_at: now,
         },
       });
+      await flagPossibleDuplicatesByKey(prismaInstance.newTechPark, dedupeKey);
 
       saved++;
     } catch (error) {

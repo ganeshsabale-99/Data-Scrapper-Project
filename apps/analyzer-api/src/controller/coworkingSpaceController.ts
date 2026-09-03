@@ -13,6 +13,7 @@ import {
     getDataScopeFromRequest,
 } from "../utils/dataScope";
 import { sendSafeErrorResponse } from "../utils/safeErrorResponse";
+import { findOutreachFieldsBlockedByContactStatus } from "../utils/venueDataQuality";
 
 export const getOverviewData = async (req: Request, res: Response) => {
     try {
@@ -245,6 +246,18 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
         const verifiedFilter = getQueryString(req.query.verified); // 'ALL', 'VERIFIED', 'UNVERIFIED'
         const skip = (page - 1) * pageSize;
 
+        // Sort by parking-problem severity so the sales team can prioritize the
+        // worst parking problems first — a plain string sort on parking_score
+        // would give HIGH, LOW, MEDIUM, not severity order.
+        const SORTABLE_FIELDS = new Set(["name", "rating", "createdAt", "parking_priority"]);
+        const requestedSortBy = getQueryString(req.query.sortBy);
+        const sortBy = requestedSortBy && SORTABLE_FIELDS.has(requestedSortBy) ? requestedSortBy : "name";
+        const requestedSortOrder = getQueryString(req.query.sortOrder);
+        const sortOrder: "asc" | "desc" =
+            requestedSortOrder === "asc" || requestedSortOrder === "desc"
+                ? requestedSortOrder
+                : sortBy === "parking_priority" ? "desc" : "asc";
+
         const where: any = {
             state: { equals: state, mode: "insensitive" },
             OR: [
@@ -298,7 +311,7 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
 
         const coworkingSpaces = await prismaInstance.coworkingSpace.findMany({
             where,
-            orderBy: { name: 'asc' },
+            orderBy: { [sortBy]: sortOrder },
             skip,
             take: pageSize,
             include: { owner: { select: { name: true } } },
@@ -369,6 +382,7 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
             pincode: cs.pincode || null,
             country: cs.country || null,
             campus_size_hint: cs.campus_size_hint || null,
+            parking_priority: cs.parking_priority ?? 0,
             exterior_media_url: cs.exterior_media_url || null,
             exterior_media_urls: cs.exterior_media_urls || [],
             serialNumber: skip + index + 1,
@@ -433,6 +447,7 @@ export const addCoworkingSpace = async (req: Request, res: Response) => {
             basement_levels,
             spoc_name,
             spoc_phone,
+            spoc_email,
             seating_capacity,
             challenges,
             exterior_media_urls,
@@ -494,6 +509,14 @@ export const addCoworkingSpace = async (req: Request, res: Response) => {
             });
         }
 
+        const blockedOutreachFields = findOutreachFieldsBlockedByContactStatus(req.body, status);
+        if (blockedOutreachFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Coworking space is NOT_CONTACTED — advance Contact Status before setting ${blockedOutreachFields.join(", ")}. These are outreach-sourced fields, not scrape-sourced.`,
+            });
+        }
+
         const existingSpace = await prismaInstance.coworkingSpace.findFirst({
             where: {
                 name: { equals: name.trim(), mode: 'insensitive' },
@@ -540,6 +563,7 @@ export const addCoworkingSpace = async (req: Request, res: Response) => {
                 basement_levels: (basement_levels !== undefined && basement_levels !== null && basement_levels !== '') ? Number(basement_levels) : null,
                 spoc_name: spoc_name || null,
                 spoc_phone: spoc_phone || null,
+                spoc_email: spoc_email || null,
                 seating_capacity: (seating_capacity !== undefined && seating_capacity !== null && seating_capacity !== '') ? Number(seating_capacity) : null,
                 challenges: challenges || null,
                 exterior_media_urls: exterior_media_urls || [],
@@ -612,6 +636,18 @@ export const updateCoworkingSpace = async (req: Request, res: Response) => {
             });
         }
 
+        // SPOC Name/Phone/Email/Challenges are outreach-sourced (from real sales
+        // calls), never scrape-sourced — don't let them be backfilled while the
+        // record is still NOT_CONTACTED.
+        const effectiveStatus = updateData.status ?? existingCoworkingSpace.status;
+        const blockedOutreachFields = findOutreachFieldsBlockedByContactStatus(updateData, effectiveStatus);
+        if (blockedOutreachFields.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: `Coworking space is NOT_CONTACTED — advance Contact Status before setting ${blockedOutreachFields.join(", ")}. These are outreach-sourced fields, not scrape-sourced.`,
+            });
+        }
+
         const hasOwn = (field: string) =>
             Object.prototype.hasOwnProperty.call(updateData, field);
         const trimIfString = (value: unknown) =>
@@ -642,6 +678,7 @@ export const updateCoworkingSpace = async (req: Request, res: Response) => {
             "property_manager_email",
             "spoc_name",
             "spoc_phone",
+            "spoc_email",
             "challenges",
         ];
 
@@ -710,6 +747,16 @@ export const updateCoworkingSpace = async (req: Request, res: Response) => {
                 return res.status(400).json({
                     success: false,
                     message: "Please enter a valid email ID",
+                });
+            }
+        }
+
+        if (hasOwn("spoc_email")) {
+            const email = String(updateData.spoc_email ?? "");
+            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Please enter a valid SPOC email ID",
                 });
             }
         }
@@ -952,7 +999,9 @@ export const changeStatus = async (req: Request, res: Response) => {
         const validStatuses = [
             "NOT_CONTACTED",
             "CONTACTED",
+            "SPOC_IDENTIFIED",
             "INTERESTED",
+            "NOT_INTERESTED",
             "MEETING_SCHEDULED",
             "PROPOSAL_SENT",
             "IN_PROGRESS",
