@@ -23,6 +23,7 @@ import { PlacesReviews } from "@/components/places-reviews/PlacesReviews";
 import { ParkingComplaintsReviews } from "@/components/places-reviews/ParkingComplaintsReviews";
 import { ReviewIssuePriority } from "@/components/places-reviews/ReviewIssuePriority";
 import { StoredVenueReviews } from "@/components/places-reviews/StoredVenueReviews";
+import { ProviderCandidates } from "@/components/places-reviews/ProviderCandidates";
 
 type ApiErrorShape = {
   response?: {
@@ -706,6 +707,8 @@ export default function CoworkingSpaceDetailsPage() {
       )}
 
       {coworkingSpace && <StoredVenueReviews venueType="coworking" venueId={coworkingSpace.id} />}
+
+      {coworkingSpace && <ProviderCandidates venueType="coworking" venueId={coworkingSpace.id} />}
 
       {/* Google Reviews Section */}
       {coworkingSpace && (

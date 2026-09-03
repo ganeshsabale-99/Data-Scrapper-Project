@@ -52,6 +52,8 @@ export interface CityWiseOverviewItem {
   contactNumber: string | null;
   status: string;
   rating: number | null;
+  total_ratings: number;
+  company_count: number;
   googleMapLink: string | null;
   isVerified: boolean;
   reviewStatus: "PENDING_REVIEW" | "APPROVED" | "REJECTED";
@@ -61,6 +63,14 @@ export interface CityWiseOverviewItem {
   hasVerificationProgress?: boolean;
   verifiedAt: string | null;
   verifiedByName: string | null;
+  review_priority?: string | null;
+  review_issue_score?: number | null;
+  reviews_analyzed?: number;
+  issue_review_count?: number;
+  parking_review_count?: number;
+  builder_name?: string | null;
+  security_agency_name?: string | null;
+  property_manager_name?: string | null;
 }
 
 export interface VerifyTechParkResponse {

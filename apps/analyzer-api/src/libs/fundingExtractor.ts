@@ -4,10 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "");
-// gemini-1.5-flash 404s against this API key/project — gemini-2.0-flash is the
-// model actually available and used successfully elsewhere in this codebase
-// (scrapeCompanyDetails.ts).
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || "gemini-3.6-flash" });
 
 export interface DetailedFundingInfo {
     company_name: string | null;

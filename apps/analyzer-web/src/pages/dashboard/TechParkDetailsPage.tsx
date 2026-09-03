@@ -27,6 +27,7 @@ import { PlacesReviews } from "@/components/places-reviews/PlacesReviews";
 import { ParkingComplaintsReviews } from "@/components/places-reviews/ParkingComplaintsReviews";
 import { ReviewIssuePriority } from "@/components/places-reviews/ReviewIssuePriority";
 import { StoredVenueReviews } from "@/components/places-reviews/StoredVenueReviews";
+import { ProviderCandidates } from "@/components/places-reviews/ProviderCandidates";
 
 type ApiErrorShape = {
   response?: {
@@ -951,6 +952,8 @@ export default function TechParkDetailsPage() {
       )}
 
       {techPark && <StoredVenueReviews venueType="techpark" venueId={techPark.id} />}
+
+      {techPark && <ProviderCandidates venueType="techpark" venueId={techPark.id} />}
 
       {/* Google Reviews Section */}
       {techPark && (

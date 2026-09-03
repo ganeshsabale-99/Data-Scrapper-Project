@@ -9,11 +9,14 @@
     "start": "node dist/index.js",
     "check-types": "tsc --noEmit",
     "lint": "pnpm run check-types",
-    "test": "node --import tsx --test \"src/**/*.test.ts\"",
+    "test": "tsx --test src/*.test.ts src/*/*.test.ts src/*/*/*.test.ts",
     "backfill:techpark-details": "tsx scripts/backfill_missing_techpark_details.ts",
     "scrape:coworking": "tsx scripts/scrapeCoworkingSpaces.ts",
     "scrape:coworking:test": "tsx scripts/scrapeCoworkingSpaces.ts --test",
-    "scrape:reviews": "tsx scripts/scrapeVenueReviews.ts"
+    "scrape:reviews": "tsx scripts/scrapeVenueReviews.ts",
+    "scrape:reviews:india": "tsx scripts/scrapeVenueReviews.ts --type all --skip-existing",
+    "enrich:venues:apollo": "tsx scripts/enrichVenuesApollo.ts",
+    "crawl:venue-providers": "tsx scripts/crawlVenueProviderCandidates.ts"
   },
   "keywords": [],
   "author": "",

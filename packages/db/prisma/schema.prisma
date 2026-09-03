@@ -976,6 +976,35 @@ model VenueReview {
   @@index([issueScore])
 }
 
+model VenueProviderCandidate {
+  id             String    @id @default(cuid())
+  venueType      String
+  venueId        String
+  venueName      String
+  query          String
+  category       String
+  candidateName  String?
+  title          String
+  sourceUrl      String
+  sourceDomain   String?
+  snippet        String?
+  phone          String?
+  email          String?
+  relevanceScore Int       @default(0)
+  status         String    @default("UNVERIFIED")
+  rawData        Json?
+  fetchedAt      DateTime  @default(now())
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([venueType, venueId, sourceUrl])
+  @@index([venueType, venueId])
+  @@index([status, relevanceScore])
+  @@index([category])
+}
+
 enum ContactLogType {
   CALL
   EMAIL

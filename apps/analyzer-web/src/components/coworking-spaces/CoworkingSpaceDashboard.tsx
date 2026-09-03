@@ -386,8 +386,9 @@ export function CoworkingSpaceDashboard({
               name: cs.name,
               address: cs.address || 'N/A',
               website: cs.operator || 'N/A',
-              rating: 0,
-              total_ratings: 0,
+              rating: cs.rating ?? 0,
+              total_ratings: cs.total_ratings ?? 0,
+              company_count: cs.company_count,
               business_status: cs.status,
               phone: cs.contactPhone || 'N/A',
               map_url: '',
@@ -401,6 +402,14 @@ export function CoworkingSpaceDashboard({
               verificationLifecycleStatus: normalizeLifecycleStatus(cs.verificationLifecycleStatus),
               isVerificationFormComplete: cs.isVerificationFormComplete,
               hasVerificationProgress: cs.hasVerificationProgress,
+              review_priority: cs.review_priority,
+              review_issue_score: cs.review_issue_score,
+              reviews_analyzed: cs.reviews_analyzed,
+              issue_review_count: cs.issue_review_count,
+              parking_review_count: cs.parking_review_count,
+              builder_name: cs.builder_name,
+              security_agency_name: cs.security_agency_name,
+              property_manager_name: cs.property_manager_name,
             }))}
             nameLabel="Coworking Space"
             locationLabel="Address"

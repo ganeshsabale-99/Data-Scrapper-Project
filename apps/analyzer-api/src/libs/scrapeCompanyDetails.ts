@@ -8,7 +8,7 @@ dotenv.config();
 
 // ─── Gemini AI Setup ─────────────────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "");
-const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+const model = genAI.getGenerativeModel({ model: process.env.GEMINI_MODEL || "gemini-3.6-flash" });
 
 export interface CompanyDetails {
     companyName: string;
@@ -27,7 +27,7 @@ export interface CompanyDetails {
 // ─── Step 0: Use Gemini AI to extract company name from title ────────────────
 
 async function extractCompanyNameWithAI(title: string): Promise<string | null> {
-    if (!process.env.GOOGLE_API_KEY) return null;
+    if (!process.env.GEMINI_API_KEY && !process.env.GOOGLE_API_KEY) return null;
 
     try {
         const prompt = `Extract ONLY the specific company or startup name from this funding news headline.

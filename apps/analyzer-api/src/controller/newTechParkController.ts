@@ -449,11 +449,13 @@ export const getOverviewData = async (req: Request, res: Response) => {
         international_phone: true,
         status: true,
         rating: true,
+        total_ratings: true,
         map_url: true,
         isVerified: true,
         reviewStatus: true,
         lat: true,
         lng: true,
+        _count: { select: { companies: true } },
       },
     });
 
@@ -632,6 +634,7 @@ export const getStateWiseOverview = async (req: Request, res: Response) => {
           international_phone: true,
           status: true,
           rating: true,
+          total_ratings: true,
           map_url: true,
           isVerified: true,
           reviewStatus: true,
@@ -858,11 +861,13 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
           international_phone: true,
           status: true,
           rating: true,
+          total_ratings: true,
           map_url: true,
           isVerified: true,
           reviewStatus: true,
           verifiedByUserId: true,
           verifiedAt: true,
+          builder_name: true,
           security_agency_name: true,
           property_manager_name: true,
           property_manager_phone: true,
@@ -892,6 +897,7 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
               name: true,
             },
           },
+          _count: { select: { companies: true } },
         },
       })
       : [];
@@ -944,6 +950,8 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
         contactNumber: tp.reception_phone || tp.international_phone || null,
         status: tp.status,
         rating: tp.rating ?? null,
+        total_ratings: tp.total_ratings ?? 0,
+        company_count: tp._count.companies,
         googleMapLink: tp.map_url ?? null,
         isVerified: tp.isVerified,
         reviewStatus: tp.reviewStatus,
@@ -955,6 +963,14 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
         verifiedByName: tp.verifiedByUser?.name ?? null,
         ownerId: tp.ownerId ?? null,
         ownerName: tp.owner?.name ?? null,
+        review_priority: tp.review_priority,
+        review_issue_score: tp.review_issue_score,
+        reviews_analyzed: tp.reviews_analyzed,
+        issue_review_count: tp.issue_review_count,
+        parking_review_count: tp.parking_review_count,
+        builder_name: tp.builder_name ?? null,
+        security_agency_name: tp.security_agency_name ?? null,
+        property_manager_name: tp.property_manager_name ?? null,
       };
     });
 

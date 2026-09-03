@@ -274,6 +274,32 @@ export const getStoredVenueReviews = async (req: Request, res: Response): Promis
   }
 };
 
+/** Return unverified provider/service candidates collected from public search results. */
+export const getVenueProviderCandidates = async (req: Request, res: Response): Promise<void> => {
+  const venueType = String(req.query.venueType ?? "").toLowerCase();
+  const venueId = String(req.query.venueId ?? "");
+  const category = String(req.query.category ?? "ALL").toUpperCase();
+  const highRelevance = String(req.query.highRelevance ?? "false") === "true";
+  if (!VENUE_TYPES.has(venueType) || !venueId) {
+    res.status(400).json({ success: false, message: "Valid 'venueType' and 'venueId' query params are required." });
+    return;
+  }
+  try {
+    const baseWhere = { venueType, venueId };
+    const where = { ...baseWhere, ...(category !== "ALL" ? { category } : {}), ...(highRelevance ? { relevanceScore: { gte: 30 } } : {}) };
+    const [items, total, high, categories] = await Promise.all([
+      prismaInstance.venueProviderCandidate.findMany({ where, orderBy: [{ relevanceScore: "desc" }, { fetchedAt: "desc" }] }),
+      prismaInstance.venueProviderCandidate.count({ where: baseWhere }),
+      prismaInstance.venueProviderCandidate.count({ where: { ...baseWhere, relevanceScore: { gte: 30 } } }),
+      prismaInstance.venueProviderCandidate.groupBy({ by: ["category"], where: baseWhere, _count: { _all: true } }),
+    ]);
+    res.json({ success: true, data: { items, counts: { all: total, high, categories: Object.fromEntries(categories.map((entry) => [entry.category, entry._count._all])) } } });
+  } catch (error) {
+    console.error("[VenueProviderCandidates] Error:", error);
+    res.status(500).json({ success: false, message: "Unable to load provider candidates." });
+  }
+};
+
 /** GET /places-reviews?name=&location=&mapUrl= */
 export const getPlaceReviews = async (req: Request, res: Response): Promise<void> => {
   const { name, location, mapUrl } = req.query as {

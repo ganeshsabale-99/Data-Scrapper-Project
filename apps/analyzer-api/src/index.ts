@@ -11,6 +11,7 @@ import { startNewsScheduler } from "./libs/newsScheduler";
 import { startScrapeScheduler } from "./libs/scrapeScheduler";
 import { ensureRbacBootstrap } from "./modules/rbac/accessControlService";
 import { startTechParkCompanySyncScheduler } from "./libs/techParkCompanySync";
+import { startProviderCrawlScheduler } from "./libs/providerCrawlScheduler";
 
 const configuredPort = Number.parseInt(process.env.PORT || "8080", 10);
 const PORT = Number.isFinite(configuredPort) ? configuredPort : 8080;
@@ -132,6 +133,12 @@ server.listen(PORT, () => {
                 { error: error instanceof Error ? error.message : String(error) },
                 "error",
             );
+        }
+
+        try {
+            startProviderCrawlScheduler();
+        } catch (error: unknown) {
+            logOperationalEvent("provider_crawl.failed_to_start", { error: error instanceof Error ? error.message : String(error) }, "error");
         }
     })();
 });

@@ -52,6 +52,10 @@ export type Location = {
   website: string;
   rating: number;
   total_ratings?: number;
+  company_count?: number;
+  builder_name?: string | null;
+  security_agency_name?: string | null;
+  property_manager_name?: string | null;
   business_status: string;
   phone: string;
   map_url: string;
@@ -144,6 +148,7 @@ export const LocationTable: React.FC<LocationTableProps> = ({
   isSearchLoading = false,
 }) => {
   const [internalSearchTerm, setInternalSearchTerm] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<"ALL" | "P1_CRITICAL" | "P2_HIGH" | "P3_MEDIUM" | "P4_LOW" | "NOT_ANALYZED">("ALL");
 
   // Use external search term if provided, otherwise use internal state
   const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
@@ -151,17 +156,24 @@ export const LocationTable: React.FC<LocationTableProps> = ({
 
   // Filter data based on search term (only if search is enabled)
   const filteredData = useMemo(() => {
-    if (!enableSearch || !searchTerm.trim() || externalSearchTerm !== undefined) return data;
+    const priorityFiltered = data.filter((item) => {
+      const analyzed = (item.reviews_analyzed ?? 0) > 0;
+      if (priorityFilter === "ALL") return true;
+      if (priorityFilter === "NOT_ANALYZED") return !analyzed;
+      return analyzed && item.review_priority === priorityFilter;
+    });
+
+    if (!enableSearch || !searchTerm.trim() || externalSearchTerm !== undefined) return priorityFiltered;
 
     const term = searchTerm.toLowerCase();
-    return data.filter((item) =>
+    return priorityFiltered.filter((item) =>
       item.name.toLowerCase().includes(term) ||
       item.address.toLowerCase().includes(term) ||
       item.website?.toLowerCase().includes(term) ||
       item.phone?.toLowerCase().includes(term) ||
       item.status.toLowerCase().includes(term)
     );
-  }, [data, searchTerm, enableSearch, externalSearchTerm]);
+  }, [data, searchTerm, enableSearch, externalSearchTerm, priorityFilter]);
 
   const formatVerifiedDate = (value?: string | null) => {
     if (!value) return null;
@@ -418,6 +430,30 @@ export const LocationTable: React.FC<LocationTableProps> = ({
           </div>
         )}
 
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-slate-600">Priority:</span>
+          {([
+            ["ALL", "All"],
+            ["P1_CRITICAL", "P1"],
+            ["P2_HIGH", "P2"],
+            ["P3_MEDIUM", "P3"],
+            ["P4_LOW", "P4"],
+            ["NOT_ANALYZED", "Not analyzed"],
+          ] as const).map(([value, label]) => {
+            const count = data.filter((item) => {
+              const analyzed = (item.reviews_analyzed ?? 0) > 0;
+              if (value === "ALL") return true;
+              if (value === "NOT_ANALYZED") return !analyzed;
+              return analyzed && item.review_priority === value;
+            }).length;
+            return (
+              <Button key={value} type="button" size="sm" variant={priorityFilter === value ? "default" : "outline"} onClick={() => setPriorityFilter(value)}>
+                {label} ({count})
+              </Button>
+            );
+          })}
+        </div>
+
         {/* Desktop Table */}
         <div className="hidden md:block">
           <Card>
@@ -432,6 +468,9 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                       <th className="text-left p-4 font-medium">Contact</th>
                       <th className="text-left p-4 font-medium">Status</th>
                       <th className="text-left p-4 font-medium">Rating</th>
+                      <th className="text-left p-4 font-medium">Reviews</th>
+                      <th className="text-left p-4 font-medium">Companies</th>
+                      <th className="text-left p-4 font-medium">Service Providers</th>
                       <th className="text-left p-4 font-medium">Priority</th>
                       <th className="text-left p-4 font-medium">Actions</th>
                     </tr>
@@ -451,7 +490,7 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="font-medium">{park.name}</div>
-                              {typeof park.isVerified === "boolean" ? (
+                              {typeof park.isVerified === "boolean" && getWorkflowStatus(park) !== "IN_PROGRESS" ? (
                                 <Badge className={getWorkflowBadgeClass(getWorkflowStatus(park))}>
                                   {getWorkflowBadgeLabel(getWorkflowStatus(park))}
                                 </Badge>
@@ -556,9 +595,30 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                           </div>
                         </td>
 
+                        {/* Google review count */}
+                        <td className="p-4">
+                          <div className="font-medium">{park.total_ratings ?? 0}</div>
+                          <div className="text-[11px] text-muted-foreground">{park.reviews_analyzed ?? 0} analyzed</div>
+                        </td>
+
+                        {/* Linked companies */}
+                        <td className="p-4">
+                          {typeof park.company_count === "number" ? <Badge variant="outline">{park.company_count}</Badge> : <span className="text-muted-foreground">—</span>}
+                        </td>
+
+                        {/* Existing service providers */}
+                        <td className="p-4">
+                          <div className="max-w-[210px] space-y-1 text-xs">
+                            {park.security_agency_name && <div><span className="font-medium">Security:</span> {park.security_agency_name}</div>}
+                            {park.property_manager_name && <div><span className="font-medium">Property:</span> {park.property_manager_name}</div>}
+                            {park.builder_name && <div><span className="font-medium">Builder:</span> {park.builder_name}</div>}
+                            {!park.security_agency_name && !park.property_manager_name && !park.builder_name && <span className="text-muted-foreground">Not found</span>}
+                          </div>
+                        </td>
+
                         {/* Review issue priority */}
                         <td className="p-4">
-                          {park.review_priority && park.review_issue_score !== null && park.review_issue_score !== undefined ? (
+                          {(park.reviews_analyzed ?? 0) > 0 && park.review_priority && park.review_issue_score !== null && park.review_issue_score !== undefined ? (
                             <div className="flex flex-col items-start gap-1">
                               <Badge className={reviewPriorityClass(park.review_priority)}>
                                 {park.review_priority.replace("_", " ")}
@@ -709,12 +769,12 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold break-words">{park.name}</h3>
-                        {typeof park.isVerified === "boolean" ? (
+                        {typeof park.isVerified === "boolean" && getWorkflowStatus(park) !== "IN_PROGRESS" ? (
                           <Badge className={getWorkflowBadgeClass(getWorkflowStatus(park))}>
                             {getWorkflowBadgeLabel(getWorkflowStatus(park))}
                           </Badge>
                         ) : null}
-                        {park.review_priority && park.review_issue_score !== null && park.review_issue_score !== undefined ? (
+                        {(park.reviews_analyzed ?? 0) > 0 && park.review_priority && park.review_issue_score !== null && park.review_issue_score !== undefined ? (
                           <Badge className={reviewPriorityClass(park.review_priority)}>
                             {park.review_priority.replace("_", " ")} · {park.review_issue_score}
                           </Badge>
@@ -734,6 +794,18 @@ export const LocationTable: React.FC<LocationTableProps> = ({
                           Assigned to {park.ownerName}
                         </div>
                       ) : null}
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                        <span>{park.total_ratings ?? 0} reviews</span>
+                        <span>· {park.reviews_analyzed ?? 0} analyzed</span>
+                        {typeof park.company_count === "number" && <span>· {park.company_count} companies</span>}
+                      </div>
+                      {(park.security_agency_name || park.property_manager_name || park.builder_name) && (
+                        <div className="mt-2 space-y-1 rounded-md bg-slate-50 p-2 text-xs">
+                          {park.security_agency_name && <div><span className="font-medium">Security:</span> {park.security_agency_name}</div>}
+                          {park.property_manager_name && <div><span className="font-medium">Property:</span> {park.property_manager_name}</div>}
+                          {park.builder_name && <div><span className="font-medium">Builder:</span> {park.builder_name}</div>}
+                        </div>
+                      )}
                       <div className="flex items-start mt-1 text-sm text-muted-foreground">
                         <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-gradient-to-tr from-blue-500 via-cyan-400 to-green-400 shadow-md mr-2 flex-shrink-0 mt-0.5">
                           <Globe className="h-3 w-3 text-white" />

@@ -62,7 +62,32 @@ export interface StoredVenueReviewsResponse {
   };
 }
 
+export interface VenueProviderCandidate {
+  id: string;
+  candidateName?: string | null;
+  title: string;
+  category: string;
+  sourceUrl: string;
+  sourceDomain?: string | null;
+  snippet?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  relevanceScore: number;
+  status: string;
+  fetchedAt: string;
+}
+
+export interface VenueProviderCandidatesResponse {
+  success: boolean;
+  data: { items: VenueProviderCandidate[]; counts: { all: number; high: number; categories: Record<string, number> } };
+}
+
 export const reviewsService = {
+  async getVenueProviderCandidates(venueType: string, venueId: string, category = "ALL", highRelevance = false): Promise<VenueProviderCandidatesResponse> {
+    const response = await axiosInstance.get<VenueProviderCandidatesResponse>("/places-reviews/provider-candidates", { params: { venueType, venueId, category, highRelevance } });
+    return response.data;
+  },
+
   async getStoredVenueReviews(venueType: string, venueId: string, filter: StoredReviewFilter, page = 1, pageSize = 10): Promise<StoredVenueReviewsResponse> {
     const response = await axiosInstance.get<StoredVenueReviewsResponse>("/places-reviews/stored", {
       params: { venueType, venueId, filter, page, pageSize },

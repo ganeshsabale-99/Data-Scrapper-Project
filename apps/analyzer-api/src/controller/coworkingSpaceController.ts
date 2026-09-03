@@ -315,7 +315,10 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
                 : { [sortBy]: sortOrder },
             skip,
             take: pageSize,
-            include: { owner: { select: { name: true } } },
+            include: {
+                owner: { select: { name: true } },
+                _count: { select: { companies: true } },
+            },
         });
 
         const totalCoworkingSpaces = totalItems;
@@ -361,6 +364,8 @@ export const getCityWiseOverview = async (req: Request, res: Response) => {
             city: cs.city || 'N/A',
             state: cs.state || 'N/A',
             rating: cs.rating || null,
+            total_ratings: cs.total_ratings ?? 0,
+            company_count: (cs as any)._count?.companies ?? 0,
             map_url: cs.map_url || null,
             website: cs.website || null,
             builder_name: cs.builder_name || null,
