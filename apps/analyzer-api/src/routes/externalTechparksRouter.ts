@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getExternalNationalTechParks,
   getExternalTechParkById,
+  getExternalTechParkCompanies,
 } from "../controller/externalTechParkController";
 import {
   externalCoworkingSpaces,
@@ -9,6 +10,7 @@ import {
   externalHospitals,
   externalStadiums,
   externalAirports,
+  getExternalCoworkingCompanies,
 } from "../controller/externalVenueController";
 import { listLeads, getLeadById } from "../controller/leadController";
 import { externalApiAuditLogger } from "../middleware/externalApiAudit";
@@ -35,6 +37,11 @@ externalTechparksRouter.get(
   requireExternalApiScope("techpark:national:read"),
   getExternalTechParkById,
 );
+externalTechparksRouter.get(
+  "/techparks/:id/companies",
+  requireExternalApiScope("techpark:companies:read"),
+  getExternalTechParkCompanies,
+);
 
 externalTechparksRouter.get(
   "/coworking-spaces",
@@ -45,6 +52,11 @@ externalTechparksRouter.get(
   "/coworking-spaces/:id",
   requireExternalApiScope("coworking:national:read"),
   externalCoworkingSpaces.getById,
+);
+externalTechparksRouter.get(
+  "/coworking-spaces/:id/companies",
+  requireExternalApiScope("coworking:companies:read"),
+  getExternalCoworkingCompanies,
 );
 
 externalTechparksRouter.get("/malls", requireExternalApiScope("mall:national:read"), externalMalls.list);

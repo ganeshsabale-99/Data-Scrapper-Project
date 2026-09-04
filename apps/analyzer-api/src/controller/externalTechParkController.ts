@@ -73,7 +73,13 @@ const EXTERNAL_TECH_PARK_SELECT = {
   verifiedAt: true,
   createdAt: true,
   updatedAt: true,
+  _count: { select: { companies: true } },
 } satisfies Prisma.NewTechParkSelect;
+
+const toExternalTechPark = <T extends { _count?: { companies: number } }>(park: T) => {
+  const { _count, ...data } = park;
+  return { ...data, company_count: _count?.companies ?? 0 };
+};
 
 const parsePositiveInteger = (
   value: string | undefined,
@@ -195,7 +201,7 @@ export const getExternalNationalTechParks = async (req: Request, res: Response) 
         status: statusRaw || null,
         verified: typeof verifiedFilter === "boolean" ? verifiedFilter : null,
       },
-      data: items,
+      data: items.map(toExternalTechPark),
       pagination: {
         page,
         limit,
@@ -244,7 +250,7 @@ export const getExternalTechParkById = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      data: techPark,
+      data: toExternalTechPark(techPark),
     });
   } catch (error) {
     return sendSafeErrorResponse(
@@ -253,5 +259,53 @@ export const getExternalTechParkById = async (req: Request, res: Response) => {
       "externalTechPark.getById",
       "Unable to fetch tech park data right now. Please try again.",
     );
+  }
+};
+
+export const getExternalTechParkCompanies = async (req: Request, res: Response) => {
+  try {
+    const techParkId = getQueryString(req.params.id)?.trim();
+    const pageRaw = parsePositiveInteger(getQueryString(req.query.page), 1);
+    const limitRaw = parsePositiveInteger(getQueryString(req.query.limit), 50);
+    if (!techParkId || !pageRaw || !limitRaw) {
+      return res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: "Valid tech park id, page and limit are required" });
+    }
+    const techPark = await prismaInstance.newTechPark.findFirst({ where: { id: techParkId, is_active: true }, select: { id: true, name: true, city: true, state: true } });
+    if (!techPark) return res.status(404).json({ success: false, code: "NOT_FOUND", message: "Tech park not found" });
+
+    const page = pageRaw;
+    const limit = Math.min(200, limitRaw);
+    const search = getQueryString(req.query.search)?.trim();
+    const where: Prisma.TechParkCompanyWhereInput = {
+      newTechParkId: techParkId,
+      isActive: true,
+      ...(search ? { OR: [{ name: { contains: search, mode: "insensitive" } }, { description: { contains: search, mode: "insensitive" } }, { contact_email: { contains: search, mode: "insensitive" } }] } : {}),
+    };
+    const [totalItems, companies] = await Promise.all([
+      prismaInstance.techParkCompany.count({ where }),
+      prismaInstance.techParkCompany.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        select: {
+          id: true, place_id: true, name: true, address: true, city: true, website: true, description: true,
+          operator: true, rating: true, total_ratings: true, types: true, business_status: true, plus_code: true,
+          opening_hours: true, map_url: true, contact_phone: true, contact_international_phone: true,
+          contact_email: true, linkedin_url: true, twitter_url: true, facebook_url: true, instagram_url: true,
+          crunchbase_url: true, firstSeenAt: true, lastSeenAt: true, createdAt: true, updatedAt: true,
+        },
+      }),
+    ]);
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+    return res.json({
+      success: true,
+      techPark,
+      filters: { search: search || null },
+      data: companies,
+      pagination: { page, limit, totalItems, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 },
+    });
+  } catch (error) {
+    return sendSafeErrorResponse(res, error, "externalTechPark.getCompanies", "Unable to fetch tech park companies right now.");
   }
 };

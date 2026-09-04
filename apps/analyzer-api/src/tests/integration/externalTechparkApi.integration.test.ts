@@ -138,4 +138,36 @@ describe("External Tech Park API", () => {
     assert.equal(response.body.success, true);
     assert.equal(response.body.data.id, "park-2");
   });
+
+  it("returns paginated companies linked to a tech park", async () => {
+    mockAuthorizedApiKeyRecord(["techpark:companies:read"]);
+    (prismaInstance.newTechPark.findFirst as unknown as ReturnType<typeof mock.fn>) = mock.fn(async () => ({ id: "park-2", name: "Tech Park Two", city: "Bengaluru", state: "Karnataka" }));
+    (prismaInstance.techParkCompany.count as unknown as ReturnType<typeof mock.fn>) = mock.fn(async () => 1);
+    (prismaInstance.techParkCompany.findMany as unknown as ReturnType<typeof mock.fn>) = mock.fn(async () => [{ id: "company-1", name: "Tenant One", newTechParkId: "park-2" }]);
+
+    const response = await request(app)
+      .get("/v1/techparks/park-2/companies?page=1&limit=50")
+      .set("x-api-key", rawApiKey);
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.techPark.id, "park-2");
+    assert.equal(response.body.pagination.totalItems, 1);
+    assert.equal(response.body.data[0].name, "Tenant One");
+  });
+
+  it("returns paginated companies linked to a coworking space", async () => {
+    mockAuthorizedApiKeyRecord(["coworking:companies:read"]);
+    (prismaInstance.coworkingSpace.findFirst as unknown as ReturnType<typeof mock.fn>) = mock.fn(async () => ({ id: "cowork-1", name: "Cowork One", city: "Mumbai", state: "Maharashtra" }));
+    (prismaInstance.coworkingCompany.count as unknown as ReturnType<typeof mock.fn>) = mock.fn(async () => 1);
+    (prismaInstance.coworkingCompany.findMany as unknown as ReturnType<typeof mock.fn>) = mock.fn(async () => [{ id: "company-2", name: "Tenant Two", coworkingSpaceId: "cowork-1" }]);
+
+    const response = await request(app)
+      .get("/v1/coworking-spaces/cowork-1/companies?page=1&limit=50")
+      .set("x-api-key", rawApiKey);
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body.coworkingSpace.id, "cowork-1");
+    assert.equal(response.body.pagination.totalItems, 1);
+    assert.equal(response.body.data[0].name, "Tenant Two");
+  });
 });

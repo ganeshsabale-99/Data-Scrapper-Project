@@ -46,15 +46,16 @@ export type ExternalVenueConfig = {
   /** Prisma delegate for the venue's model, e.g. prismaInstance.mall */
   model: any;
   /** Fields to select for both the list and single-record endpoints */
-  select: Record<string, boolean>;
+  select: Record<string, unknown>;
   /** Whether this model has an is_active column to filter on (generic venues do, CoworkingSpace doesn't) */
   hasIsActiveField: boolean;
   notFoundMessage: string;
   logPrefix: string;
+  serialize?: (record: any) => any;
 };
 
 export function createExternalVenueHandlers(config: ExternalVenueConfig) {
-  const { model, select, hasIsActiveField, notFoundMessage, logPrefix } = config;
+  const { model, select, hasIsActiveField, notFoundMessage, logPrefix, serialize = (record) => record } = config;
 
   const list = async (req: Request, res: Response) => {
     try {
@@ -136,7 +137,7 @@ export function createExternalVenueHandlers(config: ExternalVenueConfig) {
           status: statusRaw || null,
           verified: typeof verifiedFilter === "boolean" ? verifiedFilter : null,
         },
-        data: items,
+        data: items.map(serialize),
         pagination: {
           page,
           limit,
@@ -183,7 +184,7 @@ export function createExternalVenueHandlers(config: ExternalVenueConfig) {
         });
       }
 
-      return res.status(200).json({ success: true, data: record });
+      return res.status(200).json({ success: true, data: serialize(record) });
     } catch (error) {
       return sendSafeErrorResponse(
         res,
@@ -234,6 +235,11 @@ const GENERIC_VENUE_SELECT = {
   updatedAt: true,
 };
 
+const toExternalCoworkingSpace = (record: any) => {
+  const { _count, ...data } = record;
+  return { ...data, company_count: _count?.companies ?? 0 };
+};
+
 const COWORKING_SELECT = {
   id: true,
   name: true,
@@ -273,15 +279,70 @@ const COWORKING_SELECT = {
   verifiedAt: true,
   createdAt: true,
   updatedAt: true,
+  _count: { select: { companies: true } },
 };
 
 export const externalCoworkingSpaces = createExternalVenueHandlers({
   model: prismaInstance.coworkingSpace,
   select: COWORKING_SELECT,
-  hasIsActiveField: false,
+  hasIsActiveField: true,
   notFoundMessage: "Coworking space not found",
   logPrefix: "externalVenue.coworking",
+  serialize: toExternalCoworkingSpace,
 });
+
+export const getExternalCoworkingCompanies = async (req: Request, res: Response) => {
+  try {
+    const coworkingSpaceId = getQueryString(req.params.id)?.trim();
+    const pageRaw = parsePositiveInteger(getQueryString(req.query.page), 1);
+    const limitRaw = parsePositiveInteger(getQueryString(req.query.limit), 50);
+    if (!coworkingSpaceId || !pageRaw || !limitRaw) {
+      return res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: "Valid coworking space id, page and limit are required" });
+    }
+
+    const coworkingSpace = await prismaInstance.coworkingSpace.findFirst({
+      where: { id: coworkingSpaceId, is_active: true },
+      select: { id: true, name: true, city: true, state: true },
+    });
+    if (!coworkingSpace) return res.status(404).json({ success: false, code: "NOT_FOUND", message: "Coworking space not found" });
+
+    const page = pageRaw;
+    const limit = Math.min(200, limitRaw);
+    const search = getQueryString(req.query.search)?.trim();
+    const where: Prisma.CoworkingCompanyWhereInput = {
+      coworkingSpaceId,
+      ...(search ? { OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { contact_email: { contains: search, mode: "insensitive" } },
+      ] } : {}),
+    };
+    const [totalItems, companies] = await Promise.all([
+      prismaInstance.coworkingCompany.count({ where }),
+      prismaInstance.coworkingCompany.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        select: {
+          id: true, coworkingSpaceId: true, name: true, description: true, operator: true,
+          contact_phone: true, contact_email: true, contact_international_phone: true,
+          business_status: true, createdAt: true, updatedAt: true,
+        },
+      }),
+    ]);
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+    return res.status(200).json({
+      success: true,
+      coworkingSpace,
+      filters: { search: search || null },
+      data: companies,
+      pagination: { page, limit, totalItems, totalPages, hasNextPage: page < totalPages, hasPrevPage: page > 1 },
+    });
+  } catch (error) {
+    return sendSafeErrorResponse(res, error, "externalVenue.coworking.getCompanies", "Unable to fetch coworking companies right now.");
+  }
+};
 
 export const externalMalls = createExternalVenueHandlers({
   model: prismaInstance.mall,
