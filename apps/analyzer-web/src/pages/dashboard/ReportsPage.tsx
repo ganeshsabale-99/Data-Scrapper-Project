@@ -228,7 +228,9 @@ export default function ReportsPage() {
             <Card>
                 <CardHeader>
                     <CardTitle>Export Options</CardTitle>
-                    <CardDescription>Select filters and format to download data.</CardDescription>
+                    <CardDescription>
+                        Excel downloads include venue details, company counts, and separate sales-ready company sheets for Tech Parks and Coworking Spaces.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

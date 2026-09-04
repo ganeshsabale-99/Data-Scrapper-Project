@@ -68,7 +68,14 @@ async function collectExportValidationDatasets(
         applyDoNotCallFilter(where, includeDoNotCall);
         const rows = await prismaInstance.newTechPark.findMany({
             where,
-            select: { ...SELECT, address_line1: true },
+            select: {
+                id: true,
+                place_id: true,
+                city: true,
+                lat: true,
+                lng: true,
+                address_line1: true,
+            },
         });
         datasets.push({
             label: 'Tech Parks',
@@ -137,10 +144,12 @@ export const exportData = async (req: Request, res: Response) => {
         } else {
             if (entityType === 'techPark' || entityType === 'all') {
                 await addTechParkSheet(workbook, status, state, city, includeDoNotCall);
+                await addTechParkCompaniesSheet(workbook, status, state, city, includeDoNotCall);
             }
 
             if (entityType === 'coworkingSpace' || entityType === 'all') {
                 await addCoworkingSheet(workbook, status, state, city, includeDoNotCall);
+                await addCoworkingCompaniesSheet(workbook, status, state, city, includeDoNotCall);
             }
 
             if (entityType in GENERIC_VENUE_MODELS) {
@@ -185,12 +194,14 @@ async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string
     const techParks = await prismaInstance.newTechPark.findMany({
         where,
         orderBy: { createdAt: 'desc' },
+        include: { _count: { select: { companies: { where: { isActive: true } } } } },
     });
 
     sheet.columns = [
         { header: 'ID', key: 'id', width: 25 },
         { header: 'Place ID', key: 'place_id', width: 20 },
         { header: 'Name', key: 'name', width: 30 },
+        { header: 'Companies', key: 'company_count', width: 12 },
         { header: 'Address Line 1', key: 'address_line1', width: 25 },
         { header: 'Address Line 2', key: 'address_line2', width: 25 },
         { header: 'Locality', key: 'locality', width: 20 },
@@ -235,6 +246,14 @@ async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string
         { header: 'SPOC Email', key: 'spoc_email', width: 25 },
         { header: 'Seating Capacity', key: 'seating_capacity', width: 15 },
         { header: 'Challenges', key: 'challenges', width: 25 },
+        { header: 'Review Priority', key: 'review_priority', width: 16 },
+        { header: 'Review Issue Score', key: 'review_issue_score', width: 18 },
+        { header: 'Reviews Analyzed', key: 'reviews_analyzed', width: 18 },
+        { header: 'Issue Reviews', key: 'issue_review_count', width: 15 },
+        { header: 'Parking Reviews', key: 'parking_review_count', width: 16 },
+        { header: 'Issue Categories', key: 'review_issue_categories_text', width: 35 },
+        { header: 'Review Issue Summary', key: 'review_issue_summary', width: 45 },
+        { header: 'Review Analyzed At', key: 'review_analyzed_at', width: 22 },
         { header: 'First Seen At', key: 'first_seen_at', width: 20 },
         { header: 'Last Seen At', key: 'last_seen_at', width: 20 },
         { header: 'Contact Status', key: 'status', width: 18 },
@@ -252,11 +271,14 @@ async function addTechParkSheet(workbook: ExcelJS.Workbook, statusFilter: string
     techParks.forEach(park => {
         sheet.addRow({
             ...park,
+            company_count: park._count.companies,
             types: park.types ? park.types.join(', ') : '',
             is_active: park.is_active ? 'Yes' : 'No',
             isVerified: park.isVerified ? 'Yes' : 'No',
             is_possible_duplicate: park.is_possible_duplicate ? 'Yes' : 'No',
             do_not_call: park.do_not_call ? 'Yes' : 'No',
+            review_issue_categories_text: park.review_issue_categories.join(', '),
+            review_analyzed_at: park.review_analyzed_at ? park.review_analyzed_at.toISOString() : '',
             createdAt: park.createdAt ? park.createdAt.toISOString() : '',
             updatedAt: park.updatedAt ? park.updatedAt.toISOString() : '',
             first_seen_at: park.first_seen_at ? park.first_seen_at.toISOString() : '',
@@ -282,11 +304,13 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
         where,
         // Worst parking problems first, so the sales team works the sheet top-down.
         orderBy: [{ parking_priority: 'desc' }, { createdAt: 'desc' }],
+        include: { _count: { select: { companies: true } } },
     });
 
     sheet.columns = [
         { header: 'ID', key: 'id', width: 25 },
         { header: 'Name', key: 'name', width: 30 },
+        { header: 'Companies', key: 'company_count', width: 12 },
         { header: 'Campus Brand', key: 'campus_brand', width: 20 },
         { header: 'City', key: 'city', width: 15 },
         { header: 'State', key: 'state', width: 15 },
@@ -309,6 +333,14 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
         { header: 'Rating', key: 'rating', width: 10 },
         { header: 'Parking Score', key: 'challenges', width: 15 },
         { header: 'Parking Priority', key: 'parking_priority', width: 14 },
+        { header: 'Review Priority', key: 'review_priority', width: 16 },
+        { header: 'Review Issue Score', key: 'review_issue_score', width: 18 },
+        { header: 'Reviews Analyzed', key: 'reviews_analyzed', width: 18 },
+        { header: 'Issue Reviews', key: 'issue_review_count', width: 15 },
+        { header: 'Parking Reviews', key: 'parking_review_count', width: 16 },
+        { header: 'Issue Categories', key: 'review_issue_categories_text', width: 35 },
+        { header: 'Review Issue Summary', key: 'review_issue_summary', width: 45 },
+        { header: 'Review Analyzed At', key: 'review_analyzed_at', width: 22 },
         { header: 'SPOC Name', key: 'spoc_name', width: 20 },
         { header: 'SPOC Phone', key: 'spoc_phone', width: 15 },
         { header: 'SPOC Email', key: 'spoc_email', width: 25 },
@@ -330,16 +362,141 @@ async function addCoworkingSheet(workbook: ExcelJS.Workbook, statusFilter: strin
     spaces.forEach(space => {
         sheet.addRow({
             ...space,
+            company_count: space._count.companies,
             createdAt: space.createdAt ? space.createdAt.toISOString() : '',
             updatedAt: space.updatedAt ? space.updatedAt.toISOString() : '',
             verifiedAt: space.verifiedAt ? space.verifiedAt.toISOString() : '',
             isVerified: space.isVerified ? 'Yes' : 'No',
             is_possible_duplicate: space.is_possible_duplicate ? 'Yes' : 'No',
             do_not_call: space.do_not_call ? 'Yes' : 'No',
+            review_issue_categories_text: space.review_issue_categories.join(', '),
+            review_analyzed_at: space.review_analyzed_at ? space.review_analyzed_at.toISOString() : '',
         });
     });
 
     sheet.getRow(1).font = { bold: true };
+}
+
+const styleSalesSheet = (sheet: ExcelJS.Worksheet) => {
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+    sheet.autoFilter = { from: 'A1', to: `${sheet.getColumn(sheet.columnCount).letter}1` };
+};
+
+async function addTechParkCompaniesSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string, includeDoNotCall = false) {
+    const sheet = workbook.addWorksheet('Tech Park Companies');
+    const parkWhere: any = { is_active: true };
+    if (statusFilter === 'verified') parkWhere.isVerified = true;
+    if (statusFilter === 'unverified') parkWhere.isVerified = false;
+    if (state) parkWhere.state = { equals: state, mode: 'insensitive' };
+    if (city) parkWhere.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(parkWhere, includeDoNotCall);
+
+    const companies = await prismaInstance.techParkCompany.findMany({
+        where: { isActive: true, newTechPark: { is: parkWhere } },
+        include: {
+            newTechPark: { select: {
+                id: true, name: true, address_line1: true, address_line2: true, city: true, state: true,
+                map_url: true, website: true, spoc_name: true, spoc_phone: true, spoc_email: true,
+                property_manager_name: true, property_manager_phone: true, property_manager_email: true,
+                security_agency_name: true, review_priority: true, review_issue_summary: true,
+            } },
+        },
+        orderBy: [{ newTechPark: { name: 'asc' } }, { name: 'asc' }],
+    });
+
+    sheet.columns = [
+        { header: 'Tech Park ID', key: 'venue_id', width: 25 }, { header: 'Tech Park', key: 'venue_name', width: 30 },
+        { header: 'Tech Park Address', key: 'venue_address', width: 38 }, { header: 'City', key: 'venue_city', width: 18 },
+        { header: 'State', key: 'venue_state', width: 20 }, { header: 'Tech Park Map', key: 'venue_map_url', width: 30 },
+        { header: 'Tech Park Website', key: 'venue_website', width: 30 }, { header: 'SPOC Name', key: 'spoc_name', width: 22 },
+        { header: 'SPOC Phone', key: 'spoc_phone', width: 18 }, { header: 'SPOC Email', key: 'spoc_email', width: 28 },
+        { header: 'Property Manager', key: 'property_manager_name', width: 24 }, { header: 'PM Phone', key: 'property_manager_phone', width: 18 },
+        { header: 'PM Email', key: 'property_manager_email', width: 28 }, { header: 'Security Agency', key: 'security_agency_name', width: 24 },
+        { header: 'Review Priority', key: 'review_priority', width: 16 }, { header: 'Review Issue Summary', key: 'review_issue_summary', width: 40 },
+        { header: 'Company ID', key: 'company_id', width: 25 }, { header: 'Company Name', key: 'company_name', width: 30 },
+        { header: 'Company Status', key: 'company_status', width: 18 }, { header: 'Company Phone', key: 'company_phone', width: 18 },
+        { header: 'International Phone', key: 'company_international_phone', width: 20 }, { header: 'Company Email', key: 'company_email', width: 28 },
+        { header: 'Company Website', key: 'company_website', width: 30 }, { header: 'LinkedIn', key: 'linkedin_url', width: 30 },
+        { header: 'Company Address', key: 'company_address', width: 38 }, { header: 'Company City', key: 'company_city', width: 18 },
+        { header: 'Operator', key: 'operator', width: 22 }, { header: 'Description', key: 'description', width: 42 },
+        { header: 'Rating', key: 'rating', width: 10 }, { header: 'Total Ratings', key: 'total_ratings', width: 14 },
+        { header: 'Company Map', key: 'company_map_url', width: 30 }, { header: 'Active', key: 'is_active', width: 10 },
+        { header: 'Created At', key: 'created_at', width: 22 }, { header: 'Updated At', key: 'updated_at', width: 22 },
+    ];
+    companies.forEach((company) => {
+        const park = company.newTechPark;
+        sheet.addRow({
+            venue_id: park?.id, venue_name: park?.name, venue_address: [park?.address_line1, park?.address_line2].filter(Boolean).join(', '),
+            venue_city: park?.city, venue_state: park?.state, venue_map_url: park?.map_url, venue_website: park?.website,
+            spoc_name: park?.spoc_name, spoc_phone: park?.spoc_phone, spoc_email: park?.spoc_email,
+            property_manager_name: park?.property_manager_name, property_manager_phone: park?.property_manager_phone,
+            property_manager_email: park?.property_manager_email, security_agency_name: park?.security_agency_name,
+            review_priority: park?.review_priority, review_issue_summary: park?.review_issue_summary,
+            company_id: company.id, company_name: company.name, company_status: company.business_status,
+            company_phone: company.contact_phone, company_international_phone: company.contact_international_phone,
+            company_email: company.contact_email, company_website: company.website, linkedin_url: company.linkedin_url,
+            company_address: company.address, company_city: company.city, operator: company.operator, description: company.description,
+            rating: company.rating, total_ratings: company.total_ratings, company_map_url: company.map_url,
+            is_active: company.isActive ? 'Yes' : 'No', created_at: company.createdAt.toISOString(), updated_at: company.updatedAt.toISOString(),
+        });
+    });
+    styleSalesSheet(sheet);
+}
+
+async function addCoworkingCompaniesSheet(workbook: ExcelJS.Workbook, statusFilter: string, state?: string, city?: string, includeDoNotCall = false) {
+    const sheet = workbook.addWorksheet('Coworking Companies');
+    const spaceWhere: any = { is_active: true };
+    if (statusFilter === 'verified') spaceWhere.isVerified = true;
+    if (statusFilter === 'unverified') spaceWhere.isVerified = false;
+    if (state) spaceWhere.state = { equals: state, mode: 'insensitive' };
+    if (city) spaceWhere.city = { equals: city, mode: 'insensitive' };
+    applyDoNotCallFilter(spaceWhere, includeDoNotCall);
+
+    const companies = await prismaInstance.coworkingCompany.findMany({
+        where: { coworkingSpace: { is: spaceWhere } },
+        include: { coworkingSpace: { select: {
+            id: true, name: true, address: true, city: true, state: true, map_url: true, website: true,
+            operator_name: true, spoc_name: true, spoc_phone: true, spoc_email: true,
+            property_manager_name: true, property_manager_phone: true, property_manager_email: true,
+            security_agency_name: true, review_priority: true, review_issue_summary: true,
+        } } },
+        orderBy: [{ coworkingSpace: { name: 'asc' } }, { name: 'asc' }],
+    });
+
+    sheet.columns = [
+        { header: 'Coworking ID', key: 'venue_id', width: 25 }, { header: 'Coworking Space', key: 'venue_name', width: 30 },
+        { header: 'Address', key: 'venue_address', width: 38 }, { header: 'City', key: 'venue_city', width: 18 },
+        { header: 'State', key: 'venue_state', width: 20 }, { header: 'Map URL', key: 'venue_map_url', width: 30 },
+        { header: 'Website', key: 'venue_website', width: 30 }, { header: 'Coworking Operator', key: 'venue_operator', width: 24 },
+        { header: 'SPOC Name', key: 'spoc_name', width: 22 }, { header: 'SPOC Phone', key: 'spoc_phone', width: 18 },
+        { header: 'SPOC Email', key: 'spoc_email', width: 28 }, { header: 'Property Manager', key: 'property_manager_name', width: 24 },
+        { header: 'PM Phone', key: 'property_manager_phone', width: 18 }, { header: 'PM Email', key: 'property_manager_email', width: 28 },
+        { header: 'Security Agency', key: 'security_agency_name', width: 24 }, { header: 'Review Priority', key: 'review_priority', width: 16 },
+        { header: 'Review Issue Summary', key: 'review_issue_summary', width: 40 }, { header: 'Company ID', key: 'company_id', width: 25 },
+        { header: 'Company Name', key: 'company_name', width: 30 }, { header: 'Company Status', key: 'company_status', width: 18 },
+        { header: 'Company Operator', key: 'company_operator', width: 22 }, { header: 'Company Phone', key: 'company_phone', width: 18 },
+        { header: 'International Phone', key: 'company_international_phone', width: 20 }, { header: 'Company Email', key: 'company_email', width: 28 },
+        { header: 'Description', key: 'description', width: 42 }, { header: 'Created At', key: 'created_at', width: 22 },
+        { header: 'Updated At', key: 'updated_at', width: 22 },
+    ];
+    companies.forEach((company) => {
+        const space = company.coworkingSpace;
+        sheet.addRow({
+            venue_id: space.id, venue_name: space.name, venue_address: space.address, venue_city: space.city, venue_state: space.state,
+            venue_map_url: space.map_url, venue_website: space.website, venue_operator: space.operator_name,
+            spoc_name: space.spoc_name, spoc_phone: space.spoc_phone, spoc_email: space.spoc_email,
+            property_manager_name: space.property_manager_name, property_manager_phone: space.property_manager_phone,
+            property_manager_email: space.property_manager_email, security_agency_name: space.security_agency_name,
+            review_priority: space.review_priority, review_issue_summary: space.review_issue_summary,
+            company_id: company.id, company_name: company.name, company_status: company.business_status,
+            company_operator: company.operator, company_phone: company.contact_phone,
+            company_international_phone: company.contact_international_phone, company_email: company.contact_email,
+            description: company.description, created_at: company.createdAt.toISOString(), updated_at: company.updatedAt.toISOString(),
+        });
+    });
+    styleSalesSheet(sheet);
 }
 
 async function addGenericVenueSheet(workbook: ExcelJS.Workbook, entityKey: string, statusFilter: string, state?: string, city?: string, includeDoNotCall = false) {
@@ -668,4 +825,3 @@ async function generatePdf(res: Response, entityType: string, statusFilter: stri
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(pdfBuffer);
 }
-
